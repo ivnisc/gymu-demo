@@ -1,8 +1,25 @@
 # GYMU
 
-PWA única para gestión y reserva de la Sala de Musculación UTFSM Concepción.
+GYMU es una aplicación web progresiva para la gestión operativa de la Sala de
+Musculación UTFSM Concepción. Centraliza reservas, control de asistencia,
+administración de capacidad y herramientas de apoyo para el personal autorizado
+por DEFIDER.
 
-## Desarrollo
+La plataforma está diseñada para usuarios institucionales UTFSM. La integración
+con el sistema de autenticación institucional se encuentra en proceso de
+evaluación. La aplicación no almacena contraseñas institucionales.
+
+### Arquitectura
+
+- Aplicación: Next.js 16 con App Router y TypeScript.
+- Base de datos, autenticación y control de acceso: Supabase y PostgreSQL.
+- Interfaz: PWA responsive, orientada principalmente a uso móvil.
+- Monorepo: pnpm 9 y Turborepo.
+
+La aplicación vigente vive en `apps/weightroom`. Los paquetes compartidos viven
+en `packages/`.
+
+### Desarrollo local
 
 Requiere Node.js 24 o superior y `pnpm@9`.
 
@@ -11,111 +28,74 @@ pnpm install
 pnpm exec turbo dev --filter=@gusm/weightroom
 ```
 
-La aplicación vive en `apps/weightroom` y usa las rutas `/login`, `/reserva`, `/en-vivo`, `/perfil`, `/qr` y `/qr/escanear`. Las antiguas aplicaciones `readonly`, `backoffice` y `booking` fueron consolidadas como route groups de `weightroom`.
+### Variables de entorno
 
-## Variables de entorno
-
-Crear `apps/weightroom/.env.local` con:
+Crear `apps/weightroom/.env.local` con las credenciales del proyecto Supabase
+del entorno que se va a utilizar:
 
 ```sh
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 SUPABASE_SECRET_KEY=
-SANSANO_AUTH_BASE_URL=https://sansano-auth.fly.dev
-SANSANO_AUTH_API_KEY=
-GUSM_IDENTITY_HMAC_KEY=
 ```
 
-`SUPABASE_SECRET_KEY`, `SANSANO_AUTH_API_KEY` y `GUSM_IDENTITY_HMAC_KEY` son exclusivas de código server-side. `GUSM_IDENTITY_HMAC_KEY` debe ser un secreto aleatorio, estable y distinto de las demás claves.
+`SUPABASE_SECRET_KEY` es exclusiva del servidor y no debe exponerse al
+navegador, repositorio ni registros de aplicación. Cada entorno usa sus propias
+credenciales; `.env.local` está excluido de Git.
 
-### Modo presentación local
+#### Modo presentación local
 
-Por defecto `/login` usa SIGA. Para una presentación local controlada, agregar
-`NEXT_PUBLIC_GYMU_PRESENTATION_LOGIN_BYPASS=enabled` a `apps/weightroom/.env.local`, reconstruir
-y reiniciar la aplicación. Mientras esté habilitado, cualquier formulario de login, incluso vacío, abre la
-sesión del usuario de demostración `ivan.gallardo`. Nunca configurar esa variable en Cloudflare,
-Vercel ni otro deployment remoto.
+Para una demostración local controlada, agregar la siguiente variable y
+reiniciar la aplicación:
 
-## Verificación
+```sh
+NEXT_PUBLIC_GYMU_PRESENTATION_LOGIN_BYPASS=enabled
+```
+
+Con el flag activo, el formulario de acceso inicia una sesión de demostración
+interna sin verificar credenciales. Nunca debe habilitarse en un deployment
+remoto ni en un entorno con usuarios reales.
+
+### Verificación
 
 ```sh
 pnpm lint
 pnpm check-types
 pnpm format:check
+pnpm --filter @gusm/weightroom build
 ```
 
-## Despliegue en Vercel
+### Supabase y esquema
 
-GYMU se despliega como un proyecto Vercel asociado a este monorepo. La detección nativa de
-Turborepo y pnpm resuelve las dependencias `workspace:*`; no agregar `vercel.json` ni copiar
-los paquetes compartidos al directorio de la aplicación.
-
-En la importación inicial del repositorio configurar:
-
-- Framework Preset: `Next.js`.
-- Root Directory: `apps/weightroom`.
-- Include source files outside of the Root Directory in the Build Step: habilitado.
-- Node.js Version: `24.x`.
-- Install Command y Build Command: los valores detectados por Vercel para pnpm y Turborepo.
-
-El único proyecto Supabase actual es productivo. Hasta crear un proyecto separado de staging,
-configurar estas variables solo en **Production**. Los previews no deben recibir secretos de
-producción ni deben usarse para validar mutaciones reales:
-
-```text
-NEXT_PUBLIC_SUPABASE_URL
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-SUPABASE_SECRET_KEY
-SANSANO_AUTH_BASE_URL
-SANSANO_AUTH_API_KEY
-GUSM_IDENTITY_HMAC_KEY
-```
-
-`SUPABASE_SECRET_KEY`, `SANSANO_AUTH_API_KEY` y `GUSM_IDENTITY_HMAC_KEY` se agregan como
-secretos sensibles. Una modificación de variables requiere un nuevo deployment. Vercel Hobby
-está restringido por Vercel a uso personal y no comercial; usarlo inicialmente como piloto y
-confirmar su adecuación institucional antes de declarar el servicio como producción permanente.
-
-Para evitar la pausa por inactividad de Supabase Free, GitHub Actions ejecuta
-`.github/workflows/supabase-keepalive.yml` todos los días. En el repositorio, crear estos
-Actions secrets antes de fusionar el workflow a la rama predeterminada:
-
-```text
-SUPABASE_PROJECT_URL     # URL del proyecto, sin necesidad de barra final
-SUPABASE_KEEPALIVE_KEY   # SUPABASE_SECRET_KEY, nunca la publishable key
-```
-
-Tras el primer deployment productivo verificar manualmente `/login`, aceptación de términos,
-`/reserva`, `/perfil`, emisión QR y una lectura controlada de `/qr/escanear`.
-
-## Supabase
+Supabase CLI se ejecuta desde el paquete de base de datos:
 
 ```sh
 pnpm --filter @gusm/database exec supabase login
-pnpm --filter @gusm/database exec supabase link --project-ref "pxqnyizbmmucqlnghqgh"
-pnpm db:migration:new -- nombre-descriptivo
+pnpm --filter @gusm/database exec supabase link --project-ref "<project-ref>"
 pnpm db:push
 pnpm db:types
 ```
 
-Las migraciones se crean exclusivamente por CLI y, una vez aplicadas al proyecto compartido, no se modifican. Para una corrección se agrega una nueva migración.
+El scheme se versiona mediante migraciones SQL. Cada proyecto Supabase debe
+enlazarse explícitamente antes de aplicar cambios. Las migraciones ya aplicadas
+no se editan: una corrección se expresa en una migración posterior. El archivo
+generado `packages/database/src/database.types.ts` se actualiza únicamente con
+`pnpm db:types`.
 
-Las reglas de producto, seguridad, repositorio y estilo están en [AGENTS.md](AGENTS.md).
+Las reglas de seguridad, acceso y operación se implementan en la base de datos
+mediante RLS y funciones transaccionales, así que la interfaz no es autoridad para
+autorizar operaciones sensibles.
 
-## Estación QR de asistencia
+## Despliegue
 
-`/qr` muestra al usuario un token opaco de un uso, asociado al bloque vigente y válido
-solo durante sus primeros 15 minutos. `/qr/escanear` debe quedar abierto en el computador de
-la sala con una sesión de `gym_staff` o `admin`.
+GYMU contempla dos alternativas de hosting:
 
-El escáner Zebra se configura como teclado USB (HID Keyboard) con sufijo Enter. No requiere
-cámara, Bluetooth, Web Serial ni SDK del dispositivo. El control de permisos y el consumo de
-un solo uso ocurren en el backend, no en el navegador.
+1. **Vercel**, asociado al repositorio Git, para despliegues automáticos desde
+   la rama definida como producción. Esta capa gratuita de [Vercel Hobby](https://vercel.com/home) está sujeto a sus condiciones de uso personal y no comercial.
+2. **Infraestructura de la sede**, mediante un servicio o clúster
+   facilitado por la Universidad, con un origen HTTPS público.
 
-## Pendientes de producto
+La decisión final de hosting debe preceder la configuración definitiva de la
+autenticación institucional y de las capacidades PWA que dependan del origen
+público, como notificaciones push.
 
-- Noticias: crear un feed vertical administrable desde `/configuracion`, con avisos y flyers WebP ordenados desde el más reciente. Definir almacenamiento, metadatos editoriales y retención antes de construir la carga de archivos.
-- PWA instalable: tras definir el dominio HTTPS productivo, agregar manifest (`display: standalone`), íconos web y Apple, metadata de pantalla de inicio y Service Worker. Verificar que en iOS, al añadirla a Inicio con “Open as Web App” activado, GYMU abra sin la interfaz de Safari. Este hito debe preceder a notificaciones push.
-- Perfil: permitir compartir en redes un sticker de imagen con calendario mensual de asistencias y racha. La implementación debe capturar o componer solo datos ya visibles al usuario; no usar cámara ni subir imágenes hasta definir el flujo nativo.
-- Términos: la versión vigente es la `2`. Al actualizar el texto institucional de `/terminos`, incrementar `system_settings.current_terms_version` en la misma entrega.
-- Estadísticas v2: reemplazar la agregación histórica actual del Route Handler por una RPC de lectura que devuelva únicamente los agregados necesarios. Incorporar un índice parcial de `booking` para `status = 'present'` por fecha y mantener la función inaccesible desde el navegador; la ruta autenticada seguirá siendo su único consumidor.
