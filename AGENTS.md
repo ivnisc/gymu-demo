@@ -93,7 +93,6 @@ Este archivo es la referencia persistente del repositorio. Las instrucciones dir
 - Las utilidades reutilizables viven en `packages/utils/src/` y usan subpaths de `@gusm/utils`.
 - Turbo filtra por nombre de paquete completo: `pnpm exec turbo dev --filter=@gusm/weightroom`.
 - Antes de modificar código Next.js, leer la guía local pertinente en `node_modules/next/dist/docs/`; la versión instalada tiene cambios incompatibles con versiones anteriores.
-- `.agents` es la fuente canónica de skills. `.opencode` es un symlink intencional hacia `.agents`; mantener ambos. No recrear `.claude/skills` duplicado.
 
 ## Supabase y migraciones
 
