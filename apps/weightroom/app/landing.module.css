@@ -1,11 +1,33 @@
 .landing {
+  overflow-x: clip;
+  overflow-y: visible;
   padding-inline: max(20px, env(safe-area-inset-left)) max(20px, env(safe-area-inset-right));
+  padding-top: env(safe-area-inset-top);
 }
 
 .wordmark {
   font-size: 29px;
   font-weight: 900;
   letter-spacing: -0.08em;
+}
+
+.iconLink {
+  display: inline-flex;
+  width: 48px;
+  height: 48px;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-foreground);
+  cursor: pointer;
+  border-radius: 50%;
+  transition: transform 160ms ease;
+}
+.iconLink:active {
+  transform: scale(0.95);
+}
+.iconLink:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
 }
 
 .link {
@@ -49,9 +71,19 @@
   justify-content: space-between;
   gap: 52px;
   padding: 14px 22px;
-  border-radius: 999px;
+  position: relative;
+  isolation: isolate;
   font-size: 16px;
   font-weight: 650;
+}
+.cta::after {
+  position: absolute;
+  z-index: -1;
+  inset: 6% -4%;
+  background: var(--color-accent-fill);
+  transform: rotate(-2deg) skewX(-8deg);
+  transform-origin: left center;
+  content: "";
 }
 .sculpture {
   position: relative;
@@ -133,54 +165,89 @@
 }
 .weekArtwork {
   position: relative;
-  display: flex;
-  min-height: 240px;
-  align-items: center;
-  justify-content: center;
-  padding-top: 30px;
-  isolation: isolate;
-}
-.week {
-  display: flex;
-  width: 31%;
-  aspect-ratio: 0.82;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 20px;
-  border: 1px solid var(--color-muted);
-  border-radius: 60px 60px 18px 18px;
-  background: var(--color-surface);
-  transform: rotate(-12deg) translateY(13px);
-}
-.week svg {
-  width: 34px;
-  height: 34px;
-}
-.week span {
-  font-size: 14px;
-  font-weight: 550;
-}
-.week:nth-child(3) {
-  z-index: 1;
-  margin-left: -8px;
-  transform: rotate(3deg) translateY(-8px);
-}
-.week:last-child {
-  z-index: 2;
-  margin-left: -8px;
-  border-color: var(--color-accent-fill);
-  background: var(--color-accent-fill);
-  color: var(--color-accent-foreground);
-  transform: rotate(16deg) translateY(-24px);
+  width: 100%;
+  aspect-ratio: 400 / 310;
+  margin-top: 32px;
 }
 .weekTrail {
   position: absolute;
-  z-index: -1;
-  inset: 40% 0 12%;
-  border-bottom: 1px solid var(--color-muted);
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.weekTrail path {
+  stroke: var(--color-accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.weekTrail .weekTrack {
+  stroke: var(--color-ghost);
+}
+.weekTrail .weekProgress {
+  stroke: var(--color-accent);
+  stroke-width: 3;
+  stroke-linecap: round;
+  visibility: hidden;
+}
+.weekArtwork[data-started] .weekProgress {
+  visibility: visible;
+  animation: traceJourney 6s linear both;
+}
+@keyframes traceJourney {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.weekNodes {
+  position: absolute;
+  inset: 0;
+  list-style: none;
+}
+.weekNodes li {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 14px;
+  font-weight: 550;
+}
+.weekNodes li:nth-child(1) {
+  left: 17.5%;
+  top: 14.516%;
+}
+.weekNodes li:nth-child(2) {
+  left: 50%;
+  top: 50%;
+}
+.weekNodes li:nth-child(3) {
+  right: 17.5%;
+  top: 85.484%;
+  align-items: flex-end;
+  gap: 30px;
+}
+.weekNodes li > span:last-child {
+  background: var(--color-surface);
+  padding: 2px 5px;
+  margin-left: -5px;
+}
+.weekNodes li:last-child > span:last-child {
+  max-width: 24ch;
+  text-align: right;
+  margin-right: -5px;
+}
+.weekNode {
+  display: block;
+  width: 14px;
+  height: 14px;
+  margin: -7px;
+  border: 3px solid var(--color-surface);
   border-radius: 50%;
-  transform: rotate(-14deg);
+  background: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent);
 }
 .footer {
   display: flex;
@@ -220,7 +287,7 @@
 }
 @media (min-width: 1024px) {
   .landing {
-    max-width: var(--container-app-desktop);
+    max-width: none;
     padding-inline: 48px;
   }
   .hero {
@@ -273,17 +340,28 @@
     font-size: 56px;
   }
   .weekArtwork {
-    min-height: 290px;
-  }
-  .week svg {
-    width: 44px;
-    height: 44px;
+    margin-top: 0;
   }
   .footer {
     padding-block: 42px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  .iconLink {
+    transition: none;
+  }
+  .iconLink:active {
+    transform: none;
+  }
+  .weekArtwork .weekProgress {
+    animation: none;
+    visibility: visible;
+    stroke-dasharray: none !important;
+    stroke-dashoffset: 0 !important;
+  }
+  .weekNode {
+    opacity: 1 !important;
+  }
   .sculpture,
   .reveal[data-revealed="true"] {
     animation: none;
