@@ -98,4 +98,3 @@ GYMU contempla dos alternativas de hosting:
 La decisión final de hosting debe preceder la configuración definitiva de la
 autenticación institucional y de las capacidades PWA que dependan del origen
 público, como notificaciones push.
-
