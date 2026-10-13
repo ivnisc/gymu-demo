@@ -4,6 +4,8 @@ import type { AppRole } from "@/components/UserTopBar";
 const CURRENT_USER_SCHEMA = z.object({
   userName: z.string().min(1),
   role: z.enum(["student", "u_staff", "gym_staff", "admin"]),
+  bookingProfileComplete: z.boolean(),
+  regulationAccepted: z.boolean(),
   streakWeeks: z.number().int().nonnegative(),
   themePreference: z.enum(["dark", "light"]),
 });

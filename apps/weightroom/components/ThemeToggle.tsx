@@ -1,11 +1,11 @@
 "use client";
 
-import { useLayoutEffect, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { Moon, Sun } from "lucide-react";
 import { clsx } from "clsx";
 import {
-  applyThemePreference,
   getDocumentThemePreference,
+  transitionThemePreference,
   type ThemePreference,
 } from "@/lib/theme";
 
@@ -23,38 +23,46 @@ export function ThemeToggle({
 }: Props) {
   const [theme, setTheme] = useState<ThemePreference>("dark");
   const [isUpdating, setIsUpdating] = useState(false);
+  const isTransitioningRef = useRef(false);
 
   useLayoutEffect(function synchronizeTheme() {
     setTheme(getDocumentThemePreference());
   }, []);
 
   async function toggleTheme() {
-    if (disabled || isUpdating) return;
+    if (disabled || isUpdating || isTransitioningRef.current) return;
 
     const previousTheme = theme;
     const nextTheme: ThemePreference = theme === "dark" ? "light" : "dark";
 
-    applyThemePreference(nextTheme);
-    setTheme(nextTheme);
-    onThemePreferenceSelect?.(nextTheme);
+    isTransitioningRef.current = true;
+    setIsUpdating(true);
 
-    if (onThemePreferenceChange) {
-      setIsUpdating(true);
-      let didPersist = false;
+    try {
+      await transitionThemePreference(nextTheme, () => {
+        setTheme(nextTheme);
+        onThemePreferenceSelect?.(nextTheme);
+      });
 
-      try {
-        didPersist = await onThemePreferenceChange(nextTheme);
-      } catch {
-        didPersist = false;
-      } finally {
-        setIsUpdating(false);
+      if (onThemePreferenceChange) {
+        let didPersist = false;
+
+        try {
+          didPersist = await onThemePreferenceChange(nextTheme);
+        } catch {
+          didPersist = false;
+        }
+
+        if (!didPersist) {
+          await transitionThemePreference(previousTheme, () => {
+            setTheme(previousTheme);
+            onThemePreferenceSelect?.(previousTheme);
+          });
+        }
       }
-
-      if (!didPersist) {
-        applyThemePreference(previousTheme);
-        setTheme(previousTheme);
-        onThemePreferenceSelect?.(previousTheme);
-      }
+    } finally {
+      isTransitioningRef.current = false;
+      setIsUpdating(false);
     }
   }
 

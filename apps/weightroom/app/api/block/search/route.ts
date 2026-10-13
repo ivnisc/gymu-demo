@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
   const serviceRoleClient = CREATE_SUPABASE_SERVICE_ROLE_CLIENT();
   const { data, error } = await serviceRoleClient.rpc("search_current_staff_block_users", {
     p_actor_user_id: actorUserId,
-    p_institutional_username_prefix: searchRequest.data.query,
+    p_query: searchRequest.data.query,
   });
   const results = z.array(RESULT_SCHEMA).safeParse(data);
 

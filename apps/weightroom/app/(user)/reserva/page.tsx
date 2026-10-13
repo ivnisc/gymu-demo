@@ -7,6 +7,7 @@ import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion, useDragControls, useReducedMotion } from "motion/react";
 import { sileo } from "sileo";
 import * as z from "zod/v4";
+import { BadgeAlert } from "lucide-react";
 import { CREATE_SUPABASE_BROWSER_CLIENT } from "@gusm/database/client";
 import {
   UserCalendarBanner,
@@ -144,6 +145,22 @@ function getBookingDateKey(date: Date) {
   ).padStart(2, "0")}`;
 }
 
+function isOperationalBookingDate(date: Date): boolean {
+  const weekDay = date.getDay();
+  return weekDay >= 1 && weekDay <= 5;
+}
+
+function isBookingEligibilityError(errorMessage: string): boolean {
+  return (
+    errorMessage.includes("regulation acceptance is required") ||
+    errorMessage.includes("required booking profile is incomplete")
+  );
+}
+
+function isFutureCapacityRace(bookingDate: Date, errorMessage: string): boolean {
+  return bookingDate > getSantiagoToday() && errorMessage.includes("standard capacity reached");
+}
+
 function getWeekStartDateKey(date: Date) {
   const weekStart = new Date(date);
   const dayOfWeek = weekStart.getDay();
@@ -279,12 +296,18 @@ export default function BookingPage() {
   const [reservationSuccessTitle, setReservationSuccessTitle] = useState<string | null>(null);
   const [isBookingReplacementRequested, setIsBookingReplacementRequested] = useState(false);
   const [isBookingReplacementPending, setIsBookingReplacementPending] = useState(false);
+  const [isBookingCreationPending, setIsBookingCreationPending] = useState(false);
   const [isAdmissionRequested, setIsAdmissionRequested] = useState(false);
   const [closures, setClosures] = useState<BookingClosure[]>([]);
   const [closureNotice, setClosureNotice] = useState<string | null>(null);
+  const [isEligibilityNoticeOpen, setIsEligibilityNoticeOpen] = useState(false);
+  const [isAccessPreview, setIsAccessPreview] = useState(false);
   const blockSwipeControls = useDragControls();
   const shouldReduceMotion = useReducedMotion();
   const blockGridTransitionDirection = useRef<BlockGridTransitionDirection>(1);
+  const bookingCreationLockRef = useRef(false);
+  const isReservationSuccessVisibleRef = useRef(false);
+  const pendingBookingWeekRefreshRef = useRef<Date | null>(null);
 
   const selectedDate = getWeekDates(weekOffset)[dayIdx]!;
   const queryClient = useQueryClient();
@@ -300,14 +323,18 @@ export default function BookingPage() {
   const usesDirectActiveBookings =
     currentUser?.role === "student" || currentUser?.role === "u_staff";
 
+  useEffect(() => {
+    setIsAccessPreview(new URLSearchParams(window.location.search).get("demo") === "access");
+  }, []);
+
   const bookingAvailabilityQueries = useQueries({
     queries: [MIN_WEEK_OFFSET, 0, MAX_WEEK_OFFSET].map((offset) => {
       const weekStart = getBookingDateKey(getWeekDates(offset)[0]!);
       return {
         queryKey: bookingWeekAvailabilityQueryKey(weekStart),
         queryFn: () => getBookingWeekAvailability(weekStart),
-        staleTime: Number.POSITIVE_INFINITY,
-        gcTime: Number.POSITIVE_INFINITY,
+        staleTime: 60_000,
+        gcTime: 10 * 60_000,
       };
     }),
   });
@@ -513,7 +540,20 @@ export default function BookingPage() {
   }, []);
 
   useEffect(() => {
-    if (weekOffset !== 0 || !isSameDay(selectedDate, getSantiagoToday())) return;
+    if (
+      weekOffset !== 0 ||
+      !isSameDay(selectedDate, getSantiagoToday()) ||
+      !isOperationalBookingDate(selectedDate)
+    ) {
+      return;
+    }
+
+    const realtimeBlocks = isStaffBookingView
+      ? [BASE_BLOCKS[6]!]
+      : isStudentUser
+        ? BASE_BLOCKS.filter((block) => block.id !== 7)
+        : [];
+    if (realtimeBlocks.length === 0) return;
 
     const supabase = CREATE_SUPABASE_BROWSER_CLIENT();
     const channels: ReturnType<typeof supabase.channel>[] = [];
@@ -525,12 +565,14 @@ export default function BookingPage() {
 
       supabase.realtime.setAuth(data.session.access_token);
 
-      for (const block of BASE_BLOCKS) {
+      for (const block of realtimeBlocks) {
         const channel = supabase
           .channel(bookingAvailabilityTopic(selectedDateKey, block.id), {
             config: { private: true },
           })
           .on("broadcast", { event: "invalidate" }, () => {
+            if (isReservationSuccessVisibleRef.current) return;
+
             void queryClient.invalidateQueries({
               queryKey: bookingWeekAvailabilityQueryKey(getWeekStartDateKey(selectedDate)),
             });
@@ -549,7 +591,7 @@ export default function BookingPage() {
         void supabase.removeChannel(channel);
       }
     };
-  }, [queryClient, selectedDate, selectedDateKey, weekOffset]);
+  }, [isStaffBookingView, isStudentUser, queryClient, selectedDate, selectedDateKey, weekOffset]);
 
   // ── Handlers de calendario ────────────────────────────────────────────────
 
@@ -572,6 +614,8 @@ export default function BookingPage() {
   }
 
   function handleSelectBlock(blockId: number) {
+    if (bookingCreationLockRef.current) return;
+
     const closureReason = closures.find(
       (closure) =>
         closure.date === getBookingDateKey(selectedDate) && closure.timeBlockId === blockId,
@@ -612,25 +656,50 @@ export default function BookingPage() {
     });
   }
 
+  function showReservationSuccess(title: string, bookingDate: Date) {
+    isReservationSuccessVisibleRef.current = true;
+    pendingBookingWeekRefreshRef.current = bookingDate;
+    setReservationSuccessTitle(title);
+  }
+
   async function createBooking(bookingDate: Date, timeBlockId: number) {
+    if (bookingCreationLockRef.current) return;
+
+    bookingCreationLockRef.current = true;
+    setIsBookingCreationPending(true);
     const supabase = CREATE_SUPABASE_BROWSER_CLIENT();
-    const { data, error } = await supabase.rpc("create_booking", {
-      p_booking_date: getBookingDateKey(bookingDate),
-      p_time_block_id: timeBlockId,
-    });
-
-    if (error) {
-      sileo.error({
-        description: "Actualiza la disponibilidad e inténtalo otra vez.",
-        position: "top-center",
-        title: "No fue posible crear la reserva",
+    try {
+      const { data, error } = await supabase.rpc("create_booking", {
+        p_booking_date: getBookingDateKey(bookingDate),
+        p_time_block_id: timeBlockId,
       });
-      return;
-    }
 
-    if (data.status === "confirmed") setReservationSuccessTitle("Reserva confirmada");
-    else setReservationSuccessTitle("Reserva creada");
-    await refreshBookingWeek(bookingDate);
+      if (error) {
+        if (isBookingEligibilityError(error.message)) {
+          setIsEligibilityNoticeOpen(true);
+        } else if (isFutureCapacityRace(bookingDate, error.message)) {
+          sileo.info({
+            description: "El último cupo se ocupó mientras revisabas esta fecha.",
+            position: "top-center",
+            title: "Disponibilidad actualizada",
+          });
+        } else {
+          console.error("[BOOKING] could not create booking.", error);
+        }
+
+        await refreshBookingWeek(bookingDate);
+        return;
+      }
+
+      showReservationSuccess(
+        data.status === "confirmed" ? "Reserva confirmada" : "Reserva creada",
+        bookingDate,
+      );
+      setSelectedId(null);
+    } finally {
+      bookingCreationLockRef.current = false;
+      setIsBookingCreationPending(false);
+    }
   }
 
   async function replaceDailyBooking(
@@ -649,20 +718,28 @@ export default function BookingPage() {
     setIsBookingReplacementPending(false);
 
     if (error) {
-      sileo.error({
-        description: "Actualiza la disponibilidad e inténtalo otra vez.",
-        position: "top-center",
-        title: "No fue posible cambiar la reserva",
-      });
+      if (isBookingEligibilityError(error.message)) {
+        setIsEligibilityNoticeOpen(true);
+      } else if (isFutureCapacityRace(bookingDate, error.message)) {
+        sileo.info({
+          description: "El último cupo se ocupó mientras revisabas esta fecha.",
+          position: "top-center",
+          title: "Disponibilidad actualizada",
+        });
+      } else {
+        console.error("[BOOKING] could not replace daily booking.", error);
+      }
+
+      await refreshBookingWeek(bookingDate);
       return;
     }
 
     setIsBookingReplacementRequested(false);
     setSelectedId(null);
-    setReservationSuccessTitle(
+    showReservationSuccess(
       data.status === "confirmed" ? "Reserva confirmada" : "Reserva creada",
+      bookingDate,
     );
-    await refreshBookingWeek(bookingDate);
   }
 
   async function cancelBooking(bookingEntry: BookingEntry) {
@@ -690,16 +767,15 @@ export default function BookingPage() {
     });
 
     if (error) {
-      sileo.error({
-        description: "Revisa que la ventana siga abierta.",
-        position: "top-center",
-        title: "No fue posible confirmar la asistencia",
-      });
+      if (isBookingEligibilityError(error.message)) {
+        setIsEligibilityNoticeOpen(true);
+      } else {
+        console.error("[BOOKING] could not confirm booking.", error);
+      }
       return;
     }
 
-    setReservationSuccessTitle("Reserva confirmada");
-    await refreshBookingWeek(bookingEntry.bookingDate);
+    showReservationSuccess("Reserva confirmada", bookingEntry.bookingDate);
   }
 
   // ── Handlers de reserva ───────────────────────────────────────────────────
@@ -707,9 +783,19 @@ export default function BookingPage() {
   function handleInscribe() {
     if (
       !selectedBlock ||
+      bookingCreationLockRef.current ||
       !isSelectedWeekAvailabilityReady ||
       !isStandardBookingAvailable(selectedDate, selectedBlock.startTime)
     ) {
+      return;
+    }
+
+    if (
+      isAccessPreview ||
+      !currentUser?.regulationAccepted ||
+      !currentUser.bookingProfileComplete
+    ) {
+      setIsEligibilityNoticeOpen(true);
       return;
     }
 
@@ -718,7 +804,6 @@ export default function BookingPage() {
       return;
     }
 
-    setSelectedId(null);
     void createBooking(selectedDate, selectedBlock.id);
   }
 
@@ -846,6 +931,14 @@ export default function BookingPage() {
 
   function handleDismissReservationSuccess() {
     setReservationSuccessTitle(null);
+  }
+
+  function handleReservationSuccessExited() {
+    const bookingDate = pendingBookingWeekRefreshRef.current;
+
+    isReservationSuccessVisibleRef.current = false;
+    pendingBookingWeekRefreshRef.current = null;
+    if (bookingDate) void refreshBookingWeek(bookingDate);
   }
 
   async function handleRequestAdmission() {
@@ -988,6 +1081,7 @@ export default function BookingPage() {
         isBookingReplacementPending={
           isBookingReplacementPending && isBookingReplacementRequested && block.id === selectedId
         }
+        isBookingCreationPending={isBookingCreationPending && block.id === selectedId}
         isBookingReplacementRequested={isBookingReplacementRequested && block.id === selectedId}
         isCancellationLocked={isConfirmedBookingCancellationLocked(selectedDate, block.startTime)}
         isConfirmationWindowActive={isConfirmationWindowActive(selectedDate, block.startTime)}
@@ -1145,6 +1239,7 @@ export default function BookingPage() {
           isOpen={reservationSuccessTitle !== null}
           title={reservationSuccessTitle ?? "Reserva creada"}
           onDismiss={handleDismissReservationSuccess}
+          onExited={handleReservationSuccessExited}
         />
         {closureNotice && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-overlay px-5">
@@ -1168,6 +1263,51 @@ export default function BookingPage() {
               >
                 Entendido
               </button>
+            </section>
+          </div>
+        )}
+        {isEligibilityNoticeOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-overlay px-5 backdrop-blur-sm">
+            <section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="eligibility-notice-title"
+              className="w-full max-w-sm rounded-2xl border border-accent/20 bg-surface p-5 shadow-xl"
+            >
+              <div className="flex gap-3">
+                <BadgeAlert className="mt-0.5 size-5 shrink-0 text-amber-500" aria-hidden="true" />
+                <div>
+                  <p className="text-sm font-medium tracking-widest text-amber-500 uppercase">
+                    Acceso pendiente
+                  </p>
+                  <h2
+                    id="eligibility-notice-title"
+                    className="mt-2 text-xl font-semibold text-foreground"
+                  >
+                    Completa tu acceso antes de reservar
+                  </h2>
+                  <p className="mt-3 text-sm leading-6 text-muted">
+                    Revisa el reglamento vigente y completa tus datos principales desde tu perfil.
+                    Podrás seguir explorando la aplicación mientras tanto.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsEligibilityNoticeOpen(false)}
+                  className="gusm-control-height rounded-xl border border-divider px-4 text-base text-foreground-muted"
+                >
+                  Ahora no
+                </button>
+                <button
+                  type="button"
+                  onClick={() => router.push("/perfil?demo=access#acceso")}
+                  className="gusm-button-primary"
+                >
+                  Ir al perfil
+                </button>
+              </div>
             </section>
           </div>
         )}

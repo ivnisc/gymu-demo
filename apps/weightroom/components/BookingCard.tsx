@@ -70,7 +70,7 @@ export function BookingCard({
       <div className="min-h-11">{details}</div>
 
       <div className="mt-2 flex items-end gap-3">
-        <div className="min-w-0 flex-1">
+        <div className="mb-[3px] min-w-0 flex-1">
           <CapacitySlots isDisabled={isDisabled} occupied={taken} total={totalSpots} />
         </div>
         <span
@@ -87,7 +87,7 @@ export function BookingCard({
   return (
     <motion.article
       layout="position"
-      animate={{ height: actions ? "10rem" : "6rem" }}
+      animate={{ height: actions ? "9.75rem" : "5.75rem" }}
       className={clsx(
         "w-full shrink-0 overflow-hidden rounded-xl border px-3.5 py-3",
         isDisabled && "opacity-40 grayscale",
@@ -125,7 +125,7 @@ export function BookingCard({
             transition={
               shouldReduceMotion
                 ? { duration: 0 }
-                : { duration: 0.14, delay: 0.13, ease: [0.16, 1, 0.3, 1] }
+                : { duration: 0.18, delay: 0.15, ease: [0.23, 1, 0.32, 1] }
             }
           >
             {actions}

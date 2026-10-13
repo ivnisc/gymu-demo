@@ -63,10 +63,13 @@ export function StreakMilestoneProgress({ streakWeeks }: StreakMilestoneProgress
         className="mt-5"
       >
         <div className="relative flex items-center justify-between">
-          <span aria-hidden="true" className="absolute right-1 left-1 h-px bg-divider" />
           <span
             aria-hidden="true"
-            className="absolute left-1 h-px overflow-hidden"
+            className="absolute top-1/2 right-1 left-1 h-0.5 -translate-y-1/2 bg-divider"
+          />
+          <span
+            aria-hidden="true"
+            className="absolute top-1/2 left-1 h-[3px] -translate-y-1/2 overflow-hidden"
             style={{ width: progressWidth }}
           >
             <span className="gymu-streak-timeline-fill block h-full w-full origin-left bg-accent" />
@@ -75,7 +78,7 @@ export function StreakMilestoneProgress({ streakWeeks }: StreakMilestoneProgress
             <span
               key={milestone}
               aria-hidden="true"
-              className={`relative z-10 size-3 rounded-full border ${index <= latestMilestoneIndex ? "border-accent bg-accent" : "border-divider bg-surface"}`}
+              className={`relative z-10 size-3.5 rounded-full border-[3px] ${index <= latestMilestoneIndex ? "border-surface bg-accent ring-1 ring-accent" : "border-surface bg-divider"}`}
             />
           ))}
         </div>

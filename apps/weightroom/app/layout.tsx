@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import Script from "next/script";
 import "./globals.css";
@@ -22,14 +22,27 @@ const THEME_INITIALIZATION_SCRIPT = `(() => {
         ? "light"
         : "dark";
     document.documentElement.dataset.theme = theme;
+    document.querySelector('meta[name="theme-color"]')?.setAttribute(
+      "content",
+      theme === "light" ? "#ffffff" : "#0a0a0a",
+    );
   } catch {
     document.documentElement.dataset.theme = "dark";
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", "#0a0a0a");
   }
 })();`;
 
 export const metadata: Metadata = {
   title: "GYMU",
   description: "Gestión de la Sala de Musculación UTFSM Concepción",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  colorScheme: "dark light",
+  themeColor: "#0a0a0a",
 };
 
 export default function RootLayout({
@@ -51,7 +64,7 @@ export default function RootLayout({
       <body
         className={clsx(
           "flex flex-col items-center justify-center scroll-smooth font-sans",
-          "min-h-svh w-full bg-bg text-foreground antialiased",
+          "min-h-svh w-full bg-surface text-foreground antialiased",
         )}
       >
         <QueryProvider>{children}</QueryProvider>

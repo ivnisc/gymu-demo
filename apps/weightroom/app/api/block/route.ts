@@ -9,11 +9,11 @@ const CONTEXT_SCHEMA = z.object({
   booking_date: z.string().date(),
   time_block_id: z.number().int().positive(),
   block_starts_at: z.string().datetime(),
-  expires_at: z.string().datetime(),
+  block_ends_at: z.string().datetime(),
   standard_capacity: z.number().int().positive(),
-  standard_count: z.number().int().nonnegative(),
+  confirmed_standard_count: z.number().int().nonnegative(),
   overcapacity_max_above: z.number().int().nonnegative(),
-  overcapacity_count: z.number().int().nonnegative(),
+  confirmed_overcapacity_count: z.number().int().nonnegative(),
 });
 
 const CANDIDATE_SCHEMA = z.object({
@@ -22,7 +22,6 @@ const CANDIDATE_SCHEMA = z.object({
   booking_status: z.enum(["reserved", "confirmed", "present", "absent", "cancelled"]).nullable(),
   is_overcapacity: z.boolean().nullable(),
   admission_source: z.enum(["self_service", "staff_exception", "staff_overcapacity"]).nullable(),
-  staff_block_admission_request_id: z.string().uuid().nullable(),
   requested_at: z.string().datetime().nullable(),
 });
 
@@ -66,11 +65,11 @@ export async function GET(request: NextRequest) {
       bookingDate: context.data.booking_date,
       timeBlockId: context.data.time_block_id,
       blockStartsAt: context.data.block_starts_at,
-      expiresAt: context.data.expires_at,
+      blockEndsAt: context.data.block_ends_at,
       standardCapacity: context.data.standard_capacity,
-      standardCount: context.data.standard_count,
+      standardCount: context.data.confirmed_standard_count,
       overcapacityMaxAbove: context.data.overcapacity_max_above,
-      overcapacityCount: context.data.overcapacity_count,
+      overcapacityCount: context.data.confirmed_overcapacity_count,
     },
     candidates: candidates.data.map((candidate) => ({
       userId: candidate.user_id,
@@ -78,7 +77,6 @@ export async function GET(request: NextRequest) {
       bookingStatus: candidate.booking_status,
       isOvercapacity: candidate.is_overcapacity,
       admissionSource: candidate.admission_source,
-      requestId: candidate.staff_block_admission_request_id,
       requestedAt: candidate.requested_at,
     })),
   });

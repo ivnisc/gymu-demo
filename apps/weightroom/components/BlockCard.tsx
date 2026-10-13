@@ -20,6 +20,7 @@ type BlockCardProps = {
   isBookingAvailable: boolean;
   isBookingReplacementPending: boolean;
   isBookingReplacementRequested: boolean;
+  isBookingCreationPending: boolean;
   isCancellationLocked: boolean;
   isConfirmationWindowActive: boolean;
   isCurrentBlockAdmissionWindow: boolean;
@@ -88,6 +89,7 @@ export function BlockCard({
   isBookingAvailable,
   isBookingReplacementPending,
   isBookingReplacementRequested,
+  isBookingCreationPending,
   isCancellationLocked,
   isConfirmationWindowActive,
   isCurrentBlockAdmissionWindow,
@@ -145,7 +147,8 @@ export function BlockCard({
       isDisabled={isTimeBlockPast}
       isSelected={isSelected}
       onSelect={canSelect ? handleSelect : undefined}
-      title={block.timeRange}
+      title={block.startTime}
+      titleDetail={block.endTime}
       totalSpots={totalSpots}
       taken={block.taken}
       actions={
@@ -154,6 +157,7 @@ export function BlockCard({
             actionState={actionState}
             isBookingReplacementPending={isBookingReplacementPending}
             isBookingReplacementRequested={isBookingReplacementRequested}
+            isBookingCreationPending={isBookingCreationPending}
             isCancellationLocked={isCancellationLocked}
             isConfirmationWindowActive={isConfirmationWindowActive}
             isTimeBlockPast={isTimeBlockPast}

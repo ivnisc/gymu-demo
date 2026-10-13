@@ -10,20 +10,45 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.18"
   }
   private: {
     Tables: {
+      academic_program: {
+        Row: {
+          academic_program_id: number
+          created_at: string
+          display_order: number
+          is_active: boolean
+          program_name: string
+          updated_at: string
+        }
+        Insert: {
+          academic_program_id?: never
+          created_at?: string
+          display_order: number
+          is_active?: boolean
+          program_name: string
+          updated_at?: string
+        }
+        Update: {
+          academic_program_id?: never
+          created_at?: string
+          display_order?: number
+          is_active?: boolean
+          program_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       check_in_qr_token: {
         Row: {
           booking_date: string
+          check_in_qr_token_id: string
+          created_at: string
           expires_at: string
-          issued_at: string
-          qr_token_id: string
           revoked_at: string | null
-          scan_result:
-            | Database["private"]["Enums"]["check_in_qr_scan_result"]
-            | null
+          scan_result: string | null
           scanned_at: string | null
           scanned_by_user_id: string | null
           time_block_id: number
@@ -32,13 +57,11 @@ export type Database = {
         }
         Insert: {
           booking_date: string
+          check_in_qr_token_id?: string
+          created_at?: string
           expires_at: string
-          issued_at?: string
-          qr_token_id?: string
           revoked_at?: string | null
-          scan_result?:
-            | Database["private"]["Enums"]["check_in_qr_scan_result"]
-            | null
+          scan_result?: string | null
           scanned_at?: string | null
           scanned_by_user_id?: string | null
           time_block_id: number
@@ -47,13 +70,11 @@ export type Database = {
         }
         Update: {
           booking_date?: string
+          check_in_qr_token_id?: string
+          created_at?: string
           expires_at?: string
-          issued_at?: string
-          qr_token_id?: string
           revoked_at?: string | null
-          scan_result?:
-            | Database["private"]["Enums"]["check_in_qr_scan_result"]
-            | null
+          scan_result?: string | null
           scanned_at?: string | null
           scanned_by_user_id?: string | null
           time_block_id?: number
@@ -61,6 +82,437 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      exercise_catalog: {
+        Row: {
+          asset_path: string
+          created_at: string
+          display_order: number
+          equipment: string
+          exercise_key: string
+          exercise_name: string
+          is_active: boolean
+          muscle_group: string
+          updated_at: string
+        }
+        Insert: {
+          asset_path: string
+          created_at?: string
+          display_order: number
+          equipment: string
+          exercise_key: string
+          exercise_name: string
+          is_active?: boolean
+          muscle_group: string
+          updated_at?: string
+        }
+        Update: {
+          asset_path?: string
+          created_at?: string
+          display_order?: number
+          equipment?: string
+          exercise_key?: string
+          exercise_name?: string
+          is_active?: boolean
+          muscle_group?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      research_campaign: {
+        Row: {
+          closes_at: string | null
+          consent_text: string
+          created_at: string
+          created_by_user_id: string
+          data_use_notice: string
+          opens_at: string | null
+          purpose: string
+          research_campaign_id: string
+          status: Database["private"]["Enums"]["research_campaign_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          closes_at?: string | null
+          consent_text: string
+          created_at?: string
+          created_by_user_id: string
+          data_use_notice: string
+          opens_at?: string | null
+          purpose: string
+          research_campaign_id?: string
+          status?: Database["private"]["Enums"]["research_campaign_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          closes_at?: string | null
+          consent_text?: string
+          created_at?: string
+          created_by_user_id?: string
+          data_use_notice?: string
+          opens_at?: string | null
+          purpose?: string
+          research_campaign_id?: string
+          status?: Database["private"]["Enums"]["research_campaign_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      research_campaign_question: {
+        Row: {
+          display_order: number
+          is_required: boolean
+          question_key: string
+          question_snapshot: Json
+          research_campaign_id: string
+        }
+        Insert: {
+          display_order: number
+          is_required?: boolean
+          question_key: string
+          question_snapshot: Json
+          research_campaign_id: string
+        }
+        Update: {
+          display_order?: number
+          is_required?: boolean
+          question_key?: string
+          question_snapshot?: Json
+          research_campaign_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "research_campaign_question_question_key_fkey"
+            columns: ["question_key"]
+            isOneToOne: false
+            referencedRelation: "research_question_catalog"
+            referencedColumns: ["question_key"]
+          },
+          {
+            foreignKeyName: "research_campaign_question_research_campaign_id_fkey"
+            columns: ["research_campaign_id"]
+            isOneToOne: false
+            referencedRelation: "research_campaign"
+            referencedColumns: ["research_campaign_id"]
+          },
+        ]
+      }
+      research_campaign_response: {
+        Row: {
+          boolean_value: boolean | null
+          created_at: string
+          date_value: string | null
+          decimal_value: number | null
+          integer_value: number | null
+          option_key: string | null
+          question_key: string
+          research_campaign_submission_id: string
+          text_value: string | null
+          updated_at: string
+        }
+        Insert: {
+          boolean_value?: boolean | null
+          created_at?: string
+          date_value?: string | null
+          decimal_value?: number | null
+          integer_value?: number | null
+          option_key?: string | null
+          question_key: string
+          research_campaign_submission_id: string
+          text_value?: string | null
+          updated_at?: string
+        }
+        Update: {
+          boolean_value?: boolean | null
+          created_at?: string
+          date_value?: string | null
+          decimal_value?: number | null
+          integer_value?: number | null
+          option_key?: string | null
+          question_key?: string
+          research_campaign_submission_id?: string
+          text_value?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "research_campaign_response_question_key_fkey"
+            columns: ["question_key"]
+            isOneToOne: false
+            referencedRelation: "research_question_catalog"
+            referencedColumns: ["question_key"]
+          },
+          {
+            foreignKeyName: "research_campaign_response_research_campaign_submission_id_fkey"
+            columns: ["research_campaign_submission_id"]
+            isOneToOne: false
+            referencedRelation: "research_campaign_submission"
+            referencedColumns: ["research_campaign_submission_id"]
+          },
+        ]
+      }
+      research_campaign_submission: {
+        Row: {
+          consented_at: string
+          created_at: string
+          research_campaign_id: string
+          research_campaign_submission_id: string
+          submitted_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          consented_at: string
+          created_at?: string
+          research_campaign_id: string
+          research_campaign_submission_id?: string
+          submitted_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          consented_at?: string
+          created_at?: string
+          research_campaign_id?: string
+          research_campaign_submission_id?: string
+          submitted_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "research_campaign_submission_research_campaign_id_fkey"
+            columns: ["research_campaign_id"]
+            isOneToOne: false
+            referencedRelation: "research_campaign"
+            referencedColumns: ["research_campaign_id"]
+          },
+        ]
+      }
+      research_campaign_target_role: {
+        Row: {
+          research_campaign_id: string
+          target_role: Database["public"]["Enums"]["app_role"]
+        }
+        Insert: {
+          research_campaign_id: string
+          target_role: Database["public"]["Enums"]["app_role"]
+        }
+        Update: {
+          research_campaign_id?: string
+          target_role?: Database["public"]["Enums"]["app_role"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "research_campaign_target_role_research_campaign_id_fkey"
+            columns: ["research_campaign_id"]
+            isOneToOne: false
+            referencedRelation: "research_campaign"
+            referencedColumns: ["research_campaign_id"]
+          },
+        ]
+      }
+      research_question_catalog: {
+        Row: {
+          created_at: string
+          display_order: number
+          formula_description: string | null
+          help_text: string | null
+          is_campaign_selectable: boolean
+          is_derived: boolean
+          prompt: string
+          question_key: string
+          response_kind: Database["private"]["Enums"]["catalog_response_kind"]
+          section_key: string
+          sets_preventive_attention: boolean
+          source_code: string
+          source_revision: number
+          updated_at: string
+          validation: Json
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          formula_description?: string | null
+          help_text?: string | null
+          is_campaign_selectable?: boolean
+          is_derived?: boolean
+          prompt: string
+          question_key: string
+          response_kind: Database["private"]["Enums"]["catalog_response_kind"]
+          section_key: string
+          sets_preventive_attention?: boolean
+          source_code: string
+          source_revision?: number
+          updated_at?: string
+          validation?: Json
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          formula_description?: string | null
+          help_text?: string | null
+          is_campaign_selectable?: boolean
+          is_derived?: boolean
+          prompt?: string
+          question_key?: string
+          response_kind?: Database["private"]["Enums"]["catalog_response_kind"]
+          section_key?: string
+          sets_preventive_attention?: boolean
+          source_code?: string
+          source_revision?: number
+          updated_at?: string
+          validation?: Json
+        }
+        Relationships: []
+      }
+      research_question_option: {
+        Row: {
+          display_order: number
+          label: string
+          option_key: string
+          question_key: string
+        }
+        Insert: {
+          display_order: number
+          label: string
+          option_key: string
+          question_key: string
+        }
+        Update: {
+          display_order?: number
+          label?: string
+          option_key?: string
+          question_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "research_question_option_question_key_fkey"
+            columns: ["question_key"]
+            isOneToOne: false
+            referencedRelation: "research_question_catalog"
+            referencedColumns: ["question_key"]
+          },
+        ]
+      }
+      routine_plan: {
+        Row: {
+          assigned_at: string | null
+          created_at: string
+          created_by_user_id: string
+          kind: Database["private"]["Enums"]["routine_plan_kind"]
+          recipient_user_id: string | null
+          routine_plan_id: string
+          source_template_id: string | null
+          status: Database["private"]["Enums"]["routine_plan_status"]
+          title: string
+          updated_at: string
+          updated_by_user_id: string
+        }
+        Insert: {
+          assigned_at?: string | null
+          created_at?: string
+          created_by_user_id: string
+          kind: Database["private"]["Enums"]["routine_plan_kind"]
+          recipient_user_id?: string | null
+          routine_plan_id?: string
+          source_template_id?: string | null
+          status?: Database["private"]["Enums"]["routine_plan_status"]
+          title: string
+          updated_at?: string
+          updated_by_user_id: string
+        }
+        Update: {
+          assigned_at?: string | null
+          created_at?: string
+          created_by_user_id?: string
+          kind?: Database["private"]["Enums"]["routine_plan_kind"]
+          recipient_user_id?: string | null
+          routine_plan_id?: string
+          source_template_id?: string | null
+          status?: Database["private"]["Enums"]["routine_plan_status"]
+          title?: string
+          updated_at?: string
+          updated_by_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "routine_plan_source_template_id_fkey"
+            columns: ["source_template_id"]
+            isOneToOne: false
+            referencedRelation: "routine_plan"
+            referencedColumns: ["routine_plan_id"]
+          },
+        ]
+      }
+      routine_plan_exercise: {
+        Row: {
+          created_at: string
+          display_order: number
+          effective_sets: number
+          exercise_key: string
+          load_kg: number | null
+          observations: string | null
+          repetitions_max: number
+          repetitions_min: number
+          rest_seconds: number | null
+          rir: number | null
+          routine_plan_exercise_id: string
+          routine_plan_id: string
+          total_sets: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_order: number
+          effective_sets: number
+          exercise_key: string
+          load_kg?: number | null
+          observations?: string | null
+          repetitions_max: number
+          repetitions_min: number
+          rest_seconds?: number | null
+          rir?: number | null
+          routine_plan_exercise_id?: string
+          routine_plan_id: string
+          total_sets: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          effective_sets?: number
+          exercise_key?: string
+          load_kg?: number | null
+          observations?: string | null
+          repetitions_max?: number
+          repetitions_min?: number
+          rest_seconds?: number | null
+          rir?: number | null
+          routine_plan_exercise_id?: string
+          routine_plan_id?: string
+          total_sets?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "routine_plan_exercise_exercise_key_fkey"
+            columns: ["exercise_key"]
+            isOneToOne: false
+            referencedRelation: "exercise_catalog"
+            referencedColumns: ["exercise_key"]
+          },
+          {
+            foreignKeyName: "routine_plan_exercise_routine_plan_id_fkey"
+            columns: ["routine_plan_id"]
+            isOneToOne: false
+            referencedRelation: "routine_plan"
+            referencedColumns: ["routine_plan_id"]
+          },
+        ]
       }
       staff_block_admission_request: {
         Row: {
@@ -89,36 +541,6 @@ export type Database = {
         }
         Relationships: []
       }
-      user_body_measurement: {
-        Row: {
-          height_cm: number | null
-          measured_at: string
-          recorded_by_user_id: string
-          source: Database["private"]["Enums"]["profile_data_source"]
-          user_body_measurement_id: string
-          user_id: string
-          weight_kg: number | null
-        }
-        Insert: {
-          height_cm?: number | null
-          measured_at?: string
-          recorded_by_user_id: string
-          source: Database["private"]["Enums"]["profile_data_source"]
-          user_body_measurement_id?: string
-          user_id: string
-          weight_kg?: number | null
-        }
-        Update: {
-          height_cm?: number | null
-          measured_at?: string
-          recorded_by_user_id?: string
-          source?: Database["private"]["Enums"]["profile_data_source"]
-          user_body_measurement_id?: string
-          user_id?: string
-          weight_kg?: number | null
-        }
-        Relationships: []
-      }
       user_institutional_identity: {
         Row: {
           created_at: string
@@ -143,35 +565,52 @@ export type Database = {
         }
         Relationships: []
       }
-      user_personal_profile_revision: {
+      user_profile_revision: {
         Row: {
-          date_of_birth: string
+          academic_program_id: number | null
+          career_entry_year: number | null
+          date_of_birth: string | null
+          height_cm: number | null
           recorded_at: string
           recorded_by_user_id: string
-          reported_sex: Database["private"]["Enums"]["reported_sex"]
-          source: Database["private"]["Enums"]["profile_data_source"]
+          reported_sex: Database["private"]["Enums"]["reported_sex"] | null
           user_id: string
-          user_personal_profile_revision_id: string
+          user_profile_revision_id: string
+          weight_kg: number | null
         }
         Insert: {
-          date_of_birth: string
+          academic_program_id?: number | null
+          career_entry_year?: number | null
+          date_of_birth?: string | null
+          height_cm?: number | null
           recorded_at?: string
           recorded_by_user_id: string
-          reported_sex: Database["private"]["Enums"]["reported_sex"]
-          source: Database["private"]["Enums"]["profile_data_source"]
+          reported_sex?: Database["private"]["Enums"]["reported_sex"] | null
           user_id: string
-          user_personal_profile_revision_id?: string
+          user_profile_revision_id?: string
+          weight_kg?: number | null
         }
         Update: {
-          date_of_birth?: string
+          academic_program_id?: number | null
+          career_entry_year?: number | null
+          date_of_birth?: string | null
+          height_cm?: number | null
           recorded_at?: string
           recorded_by_user_id?: string
-          reported_sex?: Database["private"]["Enums"]["reported_sex"]
-          source?: Database["private"]["Enums"]["profile_data_source"]
+          reported_sex?: Database["private"]["Enums"]["reported_sex"] | null
           user_id?: string
-          user_personal_profile_revision_id?: string
+          user_profile_revision_id?: string
+          weight_kg?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_profile_revision_academic_program_id_fkey"
+            columns: ["academic_program_id"]
+            isOneToOne: false
+            referencedRelation: "academic_program"
+            referencedColumns: ["academic_program_id"]
+          },
+        ]
       }
     }
     Views: {
@@ -187,51 +626,80 @@ export type Database = {
         }
         Returns: undefined
       }
+      assert_admin_export_range: {
+        Args: { p_end_date: string; p_start_date: string }
+        Returns: undefined
+      }
       block_ends_at: {
-        Args: { p_block: number; p_date: string }
+        Args: { p_booking_date: string; p_time_block_id: number }
         Returns: string
       }
       block_starts_at: {
-        Args: { p_block: number; p_date: string }
+        Args: { p_booking_date: string; p_time_block_id: number }
         Returns: string
       }
-      current_access_state: { Args: never; Returns: string }
-      current_active_time_block: {
-        Args: never
-        Returns: {
-          booking_date: string
-          time_block_id: number
-        }[]
-      }
-      current_check_in_qr_window: {
-        Args: never
-        Returns: {
-          booking_date: string
-          time_block_id: number
-        }[]
-      }
-      current_user_role: {
-        Args: never
-        Returns: Database["public"]["Enums"]["app_role"]
-      }
-      get_profile_recording_source: {
-        Args: { p_actor_user_id: string; p_target_user_id: string }
-        Returns: Database["private"]["Enums"]["profile_data_source"]
-      }
-      get_time_block_closure_reason: {
-        Args: { p_closure_date: string; p_time_block_id: number }
-        Returns: string
-      }
-      is_active_current_user: { Args: never; Returns: boolean }
-      is_admin: { Args: never; Returns: boolean }
-      is_staff: { Args: never; Returns: boolean }
-      is_time_block_closed: {
-        Args: { p_closure_date: string; p_time_block_id: number }
+      can_receive_booking_availability_topic: {
+        Args: { p_topic: string }
         Returns: boolean
       }
-      require_current_admin: { Args: { p_user_id: string }; Returns: undefined }
-      require_current_staff: { Args: { p_user_id: string }; Returns: undefined }
-      require_current_terms_user: {
+      current_active_time_block: {
+        Args: { p_checked_at: string }
+        Returns: {
+          block_ends_at: string
+          block_starts_at: string
+          booking_date: string
+          time_block_id: number
+        }[]
+      }
+      current_streak_weeks: { Args: { p_user_id: string }; Returns: number }
+      escape_like_literal: { Args: { p_value: string }; Returns: string }
+      finalize_confirmed_booking_after_end: {
+        Args: { p_booking_id: string; p_finalization_source: string }
+        Returns: boolean
+      }
+      finalize_ended_confirmed_bookings_for_user: {
+        Args: { p_finalization_source: string; p_user_id: string }
+        Returns: number
+      }
+      get_profile_snapshot_at: {
+        Args: { p_as_of: string; p_user_id: string }
+        Returns: {
+          academic_program_name: string
+          career_entry_year: number
+          date_of_birth: string
+          height_cm: number
+          reported_sex: string
+          weight_kg: number
+        }[]
+      }
+      get_time_block_closure_reason: {
+        Args: { p_booking_date: string; p_time_block_id: number }
+        Returns: string
+      }
+      has_required_booking_profile: {
+        Args: { p_user_id: string }
+        Returns: boolean
+      }
+      is_gym_maintenance_window: { Args: never; Returns: boolean }
+      is_time_block_closed: {
+        Args: { p_booking_date: string; p_time_block_id: number }
+        Returns: boolean
+      }
+      lock_booking_closure_scope: { Args: never; Returns: undefined }
+      lock_booking_slot: {
+        Args: { p_booking_date: string; p_time_block_id: number }
+        Returns: undefined
+      }
+      lock_user_booking_day: {
+        Args: { p_booking_date: string; p_user_id: string }
+        Returns: undefined
+      }
+      parse_strict_iso_date: { Args: { p_value: string }; Returns: string }
+      replace_routine_plan_exercises: {
+        Args: { p_items: Json; p_routine_plan_id: string }
+        Returns: undefined
+      }
+      require_active_user: {
         Args: { p_user_id: string }
         Returns: Database["public"]["Tables"]["app_user"]["Row"]
         SetofOptions: {
@@ -241,23 +709,115 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      require_open_current_check_in_window: {
-        Args: never
+      require_bookable_time_block: {
+        Args: {
+          p_booking_date: string
+          p_checked_at: string
+          p_time_block_id: number
+          p_user_id: string
+        }
+        Returns: Database["public"]["Tables"]["app_user"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "app_user"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      require_current_admin: { Args: { p_user_id: string }; Returns: undefined }
+      require_current_news_editor: {
+        Args: { p_user_id: string }
+        Returns: undefined
+      }
+      require_current_research_admin: {
+        Args: { p_user_id: string }
+        Returns: undefined
+      }
+      require_current_research_recipient: {
+        Args: { p_user_id: string }
+        Returns: Database["public"]["Tables"]["app_user"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "app_user"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      require_current_routine_editor: {
+        Args: { p_user_id: string }
+        Returns: undefined
+      }
+      require_current_staff: { Args: { p_user_id: string }; Returns: undefined }
+      require_qr_eligible_user: {
+        Args: { p_user_id: string }
+        Returns: undefined
+      }
+      require_regulation_accepted_user: {
+        Args: { p_user_id: string }
+        Returns: Database["public"]["Tables"]["app_user"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "app_user"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      require_unreserved_time_block_closure: {
+        Args: { p_booking_date: string; p_time_block_id: number }
+        Returns: undefined
+      }
+      required_booking_profile_missing_fields: {
+        Args: { p_user_id: string }
+        Returns: string[]
+      }
+      revoke_unscanned_check_in_qr_tokens: {
+        Args: {
+          p_booking_date: string
+          p_time_block_id: number
+          p_user_id: string
+        }
+        Returns: undefined
+      }
+      search_user_directory: {
+        Args: {
+          p_allowed_roles: Database["public"]["Enums"]["app_role"][]
+          p_include_disabled: boolean
+          p_limit: number
+          p_query: string
+        }
         Returns: {
-          block_starts_at: string
-          booking_date: string
-          expires_at: string
-          time_block_id: number
+          allowed_time_block_id: number
+          disabled_at: string
+          disabled_reason: string
+          institutional_username: string
+          user_id: string
+          user_name: string
+          user_role: Database["public"]["Enums"]["app_role"]
         }[]
+      }
+      user_has_preventive_attention: {
+        Args: { p_user_id: string }
+        Returns: boolean
       }
     }
     Enums: {
-      check_in_qr_scan_result:
-        | "checked_in"
-        | "already_present"
-        | "no_current_booking"
-      profile_data_source: "self_reported" | "admin_recorded"
+      catalog_response_kind:
+        | "boolean"
+        | "integer"
+        | "decimal"
+        | "date"
+        | "short_text"
+        | "single_choice"
+        | "derived"
       reported_sex: "masculino" | "femenino" | "otro" | "prefiero_no_decir"
+      research_campaign_status:
+        | "draft"
+        | "scheduled"
+        | "active"
+        | "closed"
+        | "cancelled"
+      routine_plan_kind: "template" | "assignment"
+      routine_plan_status: "draft" | "assigned" | "archived"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -267,45 +827,42 @@ export type Database = {
     Tables: {
       app_user: {
         Row: {
-          accepted_terms_version: number | null
           allowed_time_block_id: number | null
           created_at: string
           disabled_at: string | null
           disabled_by_user_id: string | null
           disabled_reason: string | null
           identity_hmac: string
+          regulation_accepted_at: string | null
           role: Database["public"]["Enums"]["app_role"]
-          terms_accepted_at: string | null
           theme_preference: string
           updated_at: string
           user_id: string
           user_name: string
         }
         Insert: {
-          accepted_terms_version?: number | null
           allowed_time_block_id?: number | null
           created_at?: string
           disabled_at?: string | null
           disabled_by_user_id?: string | null
           disabled_reason?: string | null
           identity_hmac: string
+          regulation_accepted_at?: string | null
           role?: Database["public"]["Enums"]["app_role"]
-          terms_accepted_at?: string | null
           theme_preference?: string
           updated_at?: string
           user_id: string
           user_name: string
         }
         Update: {
-          accepted_terms_version?: number | null
           allowed_time_block_id?: number | null
           created_at?: string
           disabled_at?: string | null
           disabled_by_user_id?: string | null
           disabled_reason?: string | null
           identity_hmac?: string
+          regulation_accepted_at?: string | null
           role?: Database["public"]["Enums"]["app_role"]
-          terms_accepted_at?: string | null
           theme_preference?: string
           updated_at?: string
           user_id?: string
@@ -405,25 +962,25 @@ export type Database = {
           actor_user_id: string | null
           booking_event_id: string
           booking_id: string
+          created_at: string
           event_type: Database["public"]["Enums"]["booking_event_type"]
           metadata: Json
-          occurred_at: string
         }
         Insert: {
           actor_user_id?: string | null
           booking_event_id?: string
           booking_id: string
+          created_at?: string
           event_type: Database["public"]["Enums"]["booking_event_type"]
           metadata?: Json
-          occurred_at?: string
         }
         Update: {
           actor_user_id?: string | null
           booking_event_id?: string
           booking_id?: string
+          created_at?: string
           event_type?: Database["public"]["Enums"]["booking_event_type"]
           metadata?: Json
-          occurred_at?: string
         }
         Relationships: [
           {
@@ -579,31 +1136,75 @@ export type Database = {
           },
         ]
       }
+      news_item: {
+        Row: {
+          caption: string
+          created_at: string
+          created_by_user_id: string
+          news_item_id: string
+          published_at: string | null
+          status: Database["public"]["Enums"]["news_item_status"]
+          storage_path: string
+          updated_at: string
+          withdrawn_at: string | null
+        }
+        Insert: {
+          caption: string
+          created_at?: string
+          created_by_user_id: string
+          news_item_id?: string
+          published_at?: string | null
+          status?: Database["public"]["Enums"]["news_item_status"]
+          storage_path: string
+          updated_at?: string
+          withdrawn_at?: string | null
+        }
+        Update: {
+          caption?: string
+          created_at?: string
+          created_by_user_id?: string
+          news_item_id?: string
+          published_at?: string | null
+          status?: Database["public"]["Enums"]["news_item_status"]
+          storage_path?: string
+          updated_at?: string
+          withdrawn_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "news_item_created_by_user_id_fkey"
+            columns: ["created_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "app_user"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       system_settings: {
         Row: {
-          current_terms_version: number
           n_sessions_per_day: number
           overcapacity_max_above: number
           singleton: boolean
           standard_capacity: number
+          statistics_history_start_date: string | null
           updated_at: string
           updated_by_user_id: string | null
         }
         Insert: {
-          current_terms_version?: number
-          n_sessions_per_day?: number
-          overcapacity_max_above: number
-          singleton?: boolean
-          standard_capacity: number
-          updated_at?: string
-          updated_by_user_id?: string | null
-        }
-        Update: {
-          current_terms_version?: number
           n_sessions_per_day?: number
           overcapacity_max_above?: number
           singleton?: boolean
           standard_capacity?: number
+          statistics_history_start_date?: string | null
+          updated_at?: string
+          updated_by_user_id?: string | null
+        }
+        Update: {
+          n_sessions_per_day?: number
+          overcapacity_max_above?: number
+          singleton?: boolean
+          standard_capacity?: number
+          statistics_history_start_date?: string | null
           updated_at?: string
           updated_by_user_id?: string | null
         }
@@ -644,13 +1245,15 @@ export type Database = {
           created_at: string
           created_by_user_id: string
           reason: string
+          time_block_closure_id: string
           time_block_id: number
         }
         Insert: {
           closure_date: string
           created_at?: string
           created_by_user_id: string
-          reason?: string
+          reason: string
+          time_block_closure_id?: string
           time_block_id: number
         }
         Update: {
@@ -658,6 +1261,7 @@ export type Database = {
           created_at?: string
           created_by_user_id?: string
           reason?: string
+          time_block_closure_id?: string
           time_block_id?: number
         }
         Relationships: [
@@ -733,13 +1337,15 @@ export type Database = {
           iso_weekday: number
           reason: string
           time_block_id: number
+          weekly_time_block_closure_id: string
         }
         Insert: {
           created_at?: string
           created_by_user_id: string
           iso_weekday: number
-          reason?: string
+          reason: string
           time_block_id: number
+          weekly_time_block_closure_id?: string
         }
         Update: {
           created_at?: string
@@ -747,6 +1353,7 @@ export type Database = {
           iso_weekday?: number
           reason?: string
           time_block_id?: number
+          weekly_time_block_closure_id?: string
         }
         Relationships: [
           {
@@ -770,6 +1377,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_regulation: { Args: never; Returns: undefined }
       admit_current_staff_block_user: {
         Args: {
           p_actor_user_id: string
@@ -797,6 +1405,22 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "booking"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      advance_research_campaign_statuses: { Args: never; Returns: undefined }
+      assign_routine_template: {
+        Args: {
+          p_actor_user_id: string
+          p_recipient_user_id: string
+          p_template_routine_plan_id: string
+          p_title: string
+        }
+        Returns: Database["private"]["Tables"]["routine_plan"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "routine_plan"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -862,6 +1486,44 @@ export type Database = {
           state: string
         }[]
       }
+      create_admin_news_item_draft: {
+        Args: { p_actor_user_id: string; p_caption: string }
+        Returns: {
+          caption: string
+          created_at: string
+          created_by_user_id: string
+          news_item_id: string
+          published_at: string | null
+          status: Database["public"]["Enums"]["news_item_status"]
+          storage_path: string
+          updated_at: string
+          withdrawn_at: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "news_item"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      create_admin_research_campaign_draft: {
+        Args: {
+          p_actor_user_id: string
+          p_consent_text: string
+          p_data_use_notice: string
+          p_purpose: string
+          p_questions: Json
+          p_target_roles: Json
+          p_title: string
+        }
+        Returns: Database["private"]["Tables"]["research_campaign"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "research_campaign"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       create_booking: {
         Args: { p_booking_date: string; p_time_block_id: number }
         Returns: {
@@ -889,37 +1551,13 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      create_time_block_closure: {
-        Args: { p_closure_date: string; p_time_block_id: number }
-        Returns: {
-          closure_date: string
-          created_at: string
-          created_by_user_id: string
-          reason: string
-          time_block_id: number
-        }
-        SetofOptions: {
-          from: "*"
-          to: "time_block_closure"
-          isOneToOne: true
-          isSetofReturn: false
-        }
+      delete_admin_news_item: {
+        Args: { p_actor_user_id: string; p_news_item_id: string }
+        Returns: string
       }
-      create_weekly_time_block_closure: {
-        Args: { p_iso_weekday: number; p_time_block_id: number }
-        Returns: {
-          created_at: string
-          created_by_user_id: string
-          iso_weekday: number
-          reason: string
-          time_block_id: number
-        }
-        SetofOptions: {
-          from: "*"
-          to: "weekly_time_block_closure"
-          isOneToOne: true
-          isSetofReturn: false
-        }
+      delete_expired_staff_block_admission_requests: {
+        Args: never
+        Returns: number
       }
       disable_admin_user: {
         Args: {
@@ -928,15 +1566,14 @@ export type Database = {
           p_target_user_id: string
         }
         Returns: {
-          accepted_terms_version: number | null
           allowed_time_block_id: number | null
           created_at: string
           disabled_at: string | null
           disabled_by_user_id: string | null
           disabled_reason: string | null
           identity_hmac: string
+          regulation_accepted_at: string | null
           role: Database["public"]["Enums"]["app_role"]
-          terms_accepted_at: string | null
           theme_preference: string
           updated_at: string
           user_id: string
@@ -949,9 +1586,15 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      expire_staff_block_admission_requests: { Args: never; Returns: number }
       expire_unconfirmed_bookings: { Args: never; Returns: number }
       finalize_due_attendance: { Args: never; Returns: number }
+      get_academic_programs: {
+        Args: never
+        Returns: {
+          academic_program_id: number
+          program_name: string
+        }[]
+      }
       get_admin_booking_export: {
         Args: {
           p_actor_user_id: string
@@ -960,6 +1603,7 @@ export type Database = {
         }
         Returns: {
           absent_at: string
+          academic_program_name: string
           admission_source: Database["public"]["Enums"]["booking_admission_source"]
           block_ends_at: string
           block_starts_at: string
@@ -967,17 +1611,18 @@ export type Database = {
           booking_date: string
           booking_status: Database["public"]["Enums"]["booking_status"]
           cancelled_at: string
+          career_entry_year: number
           confirmed_at: string
           date_of_birth: string
           height_cm: number
-          institutional_username: string
           is_overcapacity: boolean
           late_qr_authorized_at: string
+          participant_id: string
+          participant_label: string
           present_at: string
           qr_scanned_at: string
           reported_sex: string
           time_block_id: number
-          user_name: string
           user_role: Database["public"]["Enums"]["app_role"]
           warning_types: string
           weight_kg: number
@@ -994,14 +1639,16 @@ export type Database = {
           p_start_date: string
         }
         Returns: {
+          academic_program_name: string
           action_kind: Database["public"]["Enums"]["discipline_action_kind"]
           applied_at: string
+          career_entry_year: number
           date_of_birth: string
           height_cm: number
-          institutional_username: string
           occurrence_count: number
+          participant_id: string
+          participant_label: string
           reported_sex: string
-          user_name: string
           user_role: Database["public"]["Enums"]["app_role"]
           violation_type: Database["public"]["Enums"]["discipline_violation_type"]
           weight_kg: number
@@ -1011,11 +1658,37 @@ export type Database = {
         Args: { p_actor_user_id: string }
         Returns: {
           action_kind: Database["public"]["Enums"]["discipline_action_kind"]
+          created_at: string
+          created_by_user_id: string
           discipline_rule_id: string
           enabled: boolean
           occurrence_threshold: number
+          updated_at: string
+          updated_by_user_id: string
           violation_type: Database["public"]["Enums"]["discipline_violation_type"]
           window_days: number
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "discipline_rule"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      get_admin_research_question_catalog: {
+        Args: { p_actor_user_id: string }
+        Returns: {
+          help_text: string
+          is_campaign_selectable: boolean
+          is_derived: boolean
+          options: Json
+          prompt: string
+          question_key: string
+          response_kind: Database["private"]["Enums"]["catalog_response_kind"]
+          section_key: string
+          sets_preventive_attention: boolean
+          source_code: string
+          validation: Json
         }[]
       }
       get_admin_standalone_warning_export: {
@@ -1025,11 +1698,13 @@ export type Database = {
           p_start_date: string
         }
         Returns: {
+          academic_program_name: string
+          career_entry_year: number
           date_of_birth: string
           height_cm: number
-          institutional_username: string
+          participant_id: string
+          participant_label: string
           reported_sex: string
-          user_name: string
           user_role: Database["public"]["Enums"]["app_role"]
           warning_created_at: string
           warning_type: Database["public"]["Enums"]["warning_type"]
@@ -1064,7 +1739,7 @@ export type Database = {
         }[]
       }
       get_check_in_qr_status: {
-        Args: { p_qr_token_id: string; p_user_id: string }
+        Args: { p_check_in_qr_token_id: string; p_user_id: string }
         Returns: {
           scanned_at: string
           state: string
@@ -1078,7 +1753,6 @@ export type Database = {
           booking_status: Database["public"]["Enums"]["booking_status"]
           is_overcapacity: boolean
           requested_at: string
-          staff_block_admission_request_id: string
           user_id: string
           user_name: string
         }[]
@@ -1086,14 +1760,37 @@ export type Database = {
       get_current_staff_block_context: {
         Args: { p_actor_user_id: string }
         Returns: {
+          block_ends_at: string
           block_starts_at: string
           booking_date: string
-          expires_at: string
-          overcapacity_count: number
+          confirmed_overcapacity_count: number
+          confirmed_standard_count: number
           overcapacity_max_above: number
           standard_capacity: number
-          standard_count: number
           time_block_id: number
+        }[]
+      }
+      get_own_active_research_campaigns: {
+        Args: { p_user_id: string }
+        Returns: {
+          closes_at: string
+          consent_text: string
+          data_use_notice: string
+          purpose: string
+          questions: Json
+          research_campaign_id: string
+          submitted_at: string
+          title: string
+        }[]
+      }
+      get_own_routine_assignments: {
+        Args: never
+        Returns: {
+          assigned_at: string
+          created_by_name: string
+          exercises: Json
+          routine_plan_id: string
+          title: string
         }[]
       }
       get_profile_monthly_attendance: {
@@ -1110,6 +1807,11 @@ export type Database = {
       get_profile_overview: {
         Args: { p_actor_user_id: string; p_target_user_id: string }
         Returns: {
+          academic_program_id: number
+          academic_program_name: string
+          booking_profile_complete: boolean
+          booking_profile_missing_fields: string[]
+          career_entry_year: number
           date_of_birth: string
           height_cm: number
           institutional_username: string
@@ -1121,16 +1823,46 @@ export type Database = {
           weight_kg: number
         }[]
       }
-      has_accepted_current_terms: { Args: never; Returns: boolean }
+      get_published_news_feed: {
+        Args: never
+        Returns: {
+          caption: string
+          news_item_id: string
+          published_at: string
+          storage_path: string
+        }[]
+      }
+      has_accepted_regulation: { Args: never; Returns: boolean }
       issue_check_in_qr: {
         Args: { p_token_hash: string; p_user_id: string }
         Returns: {
           booking_date: string
+          check_in_qr_token_id: string
           expires_at: string
-          qr_token_id: string
           state: string
           time_block_id: number
         }[]
+      }
+      prune_cron_job_run_details: { Args: never; Returns: number }
+      publish_admin_news_item: {
+        Args: { p_actor_user_id: string; p_news_item_id: string }
+        Returns: {
+          caption: string
+          created_at: string
+          created_by_user_id: string
+          news_item_id: string
+          published_at: string | null
+          status: Database["public"]["Enums"]["news_item_status"]
+          storage_path: string
+          updated_at: string
+          withdrawn_at: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "news_item"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       reauthorize_current_staff_block_qr: {
         Args: { p_actor_user_id: string; p_target_user_id: string }
@@ -1159,17 +1891,6 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      record_profile_data: {
-        Args: {
-          p_actor_user_id: string
-          p_date_of_birth: string
-          p_height_cm: number
-          p_reported_sex: string
-          p_target_user_id: string
-          p_weight_kg: number
-        }
-        Returns: undefined
-      }
       record_profile_data_from_payload: {
         Args: {
           p_actor_user_id: string
@@ -1177,14 +1898,6 @@ export type Database = {
           p_target_user_id: string
         }
         Returns: undefined
-      }
-      remove_admin_date_time_block_closure: {
-        Args: {
-          p_actor_user_id: string
-          p_closure_date: string
-          p_time_block_id: number
-        }
-        Returns: boolean
       }
       remove_admin_discipline_rule: {
         Args: { p_actor_user_id: string; p_discipline_rule_id: string }
@@ -1194,20 +1907,15 @@ export type Database = {
         Args: { p_actor_user_id: string; p_full_day_closure_period_id: string }
         Returns: boolean
       }
+      remove_admin_time_block_closure: {
+        Args: { p_actor_user_id: string; p_time_block_closure_id: string }
+        Returns: boolean
+      }
       remove_admin_weekly_time_block_closure: {
         Args: {
           p_actor_user_id: string
-          p_iso_weekday: number
-          p_time_block_id: number
+          p_weekly_time_block_closure_id: string
         }
-        Returns: boolean
-      }
-      remove_time_block_closure: {
-        Args: { p_closure_date: string; p_time_block_id: number }
-        Returns: boolean
-      }
-      remove_weekly_time_block_closure: {
-        Args: { p_iso_weekday: number; p_time_block_id: number }
         Returns: boolean
       }
       replace_daily_booking: {
@@ -1252,15 +1960,14 @@ export type Database = {
       restore_admin_user: {
         Args: { p_actor_user_id: string; p_target_user_id: string }
         Returns: {
-          accepted_terms_version: number | null
           allowed_time_block_id: number | null
           created_at: string
           disabled_at: string | null
           disabled_by_user_id: string | null
           disabled_reason: string | null
           identity_hmac: string
+          regulation_accepted_at: string | null
           role: Database["public"]["Enums"]["app_role"]
-          terms_accepted_at: string | null
           theme_preference: string
           updated_at: string
           user_id: string
@@ -1273,9 +1980,42 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      run_booking_maintenance: { Args: never; Returns: undefined }
+      run_research_campaign_maintenance: { Args: never; Returns: undefined }
+      save_routine_template_draft: {
+        Args: {
+          p_actor_user_id: string
+          p_exercises: Json
+          p_routine_plan_id: string
+          p_title: string
+        }
+        Returns: Database["private"]["Tables"]["routine_plan"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "routine_plan"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      schedule_admin_research_campaign: {
+        Args: {
+          p_actor_user_id: string
+          p_closes_at: string
+          p_opens_at: string
+          p_research_campaign_id: string
+        }
+        Returns: Database["private"]["Tables"]["research_campaign"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "research_campaign"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       search_admin_users: {
         Args: { p_actor_user_id: string; p_query: string }
         Returns: {
+          allowed_time_block_id: number
           disabled_at: string
           disabled_reason: string
           institutional_username: string
@@ -1285,16 +2025,59 @@ export type Database = {
         }[]
       }
       search_current_staff_block_users: {
-        Args: {
-          p_actor_user_id: string
-          p_institutional_username_prefix: string
-        }
+        Args: { p_actor_user_id: string; p_query: string }
         Returns: {
           booking_status: Database["public"]["Enums"]["booking_status"]
           institutional_username: string
           user_id: string
           user_name: string
         }[]
+      }
+      search_routine_assignment_recipients: {
+        Args: { p_actor_user_id: string; p_query: string }
+        Returns: {
+          institutional_username: string
+          user_id: string
+          user_name: string
+          user_role: Database["public"]["Enums"]["app_role"]
+        }[]
+      }
+      search_staff_profile_users: {
+        Args: { p_actor_user_id: string; p_query: string }
+        Returns: {
+          institutional_username: string
+          user_id: string
+          user_name: string
+          user_role: Database["public"]["Enums"]["app_role"]
+        }[]
+      }
+      set_admin_research_question_campaign_availability: {
+        Args: {
+          p_actor_user_id: string
+          p_is_campaign_selectable: boolean
+          p_question_key: string
+        }
+        Returns: Database["private"]["Tables"]["research_question_catalog"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "research_question_catalog"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      submit_own_research_campaign: {
+        Args: {
+          p_research_campaign_id: string
+          p_responses: Json
+          p_user_id: string
+        }
+        Returns: Database["private"]["Tables"]["research_campaign_submission"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "research_campaign_submission"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       update_admin_operational_settings: {
         Args: {
@@ -1303,17 +2086,59 @@ export type Database = {
           p_overcapacity_max_above: number
         }
         Returns: {
-          current_terms_version: number
           n_sessions_per_day: number
           overcapacity_max_above: number
           singleton: boolean
           standard_capacity: number
+          statistics_history_start_date: string | null
           updated_at: string
           updated_by_user_id: string | null
         }
         SetofOptions: {
           from: "*"
           to: "system_settings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      update_admin_user_access: {
+        Args: {
+          p_actor_user_id: string
+          p_role: Database["public"]["Enums"]["app_role"]
+          p_target_user_id: string
+        }
+        Returns: {
+          allowed_time_block_id: number | null
+          created_at: string
+          disabled_at: string | null
+          disabled_by_user_id: string | null
+          disabled_reason: string | null
+          identity_hmac: string
+          regulation_accepted_at: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          theme_preference: string
+          updated_at: string
+          user_id: string
+          user_name: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "app_user"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      update_assigned_routine: {
+        Args: {
+          p_actor_user_id: string
+          p_exercises: Json
+          p_routine_plan_id: string
+          p_title: string
+        }
+        Returns: Database["private"]["Tables"]["routine_plan"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "routine_plan"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -1334,6 +2159,7 @@ export type Database = {
           created_at: string
           created_by_user_id: string
           reason: string
+          time_block_closure_id: string
           time_block_id: number
         }
         SetofOptions: {
@@ -1373,9 +2199,9 @@ export type Database = {
       upsert_admin_full_day_closure_period: {
         Args: {
           p_actor_user_id: string
-          p_closure_end_date: string
-          p_closure_start_date: string
+          p_end_date: string
           p_reason: string
+          p_start_date: string
         }
         Returns: {
           closure_end_date: string
@@ -1405,6 +2231,7 @@ export type Database = {
           iso_weekday: number
           reason: string
           time_block_id: number
+          weekly_time_block_closure_id: string
         }
         SetofOptions: {
           from: "*"
@@ -1416,6 +2243,26 @@ export type Database = {
       upsert_institutional_identity: {
         Args: { p_institutional_username: string; p_user_id: string }
         Returns: undefined
+      }
+      withdraw_admin_news_item: {
+        Args: { p_actor_user_id: string; p_news_item_id: string }
+        Returns: {
+          caption: string
+          created_at: string
+          created_by_user_id: string
+          news_item_id: string
+          published_at: string | null
+          status: Database["public"]["Enums"]["news_item_status"]
+          storage_path: string
+          updated_at: string
+          withdrawn_at: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "news_item"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
     }
     Enums: {
@@ -1433,7 +2280,7 @@ export type Database = {
         | "qr_check_in"
         | "visual_check_in"
         | "visual_absence"
-        | "authorization_consumed"
+        | "late_qr_authorized"
         | "attendance_finalized"
       booking_status:
         | "reserved"
@@ -1447,6 +2294,7 @@ export type Database = {
         | "missed_confirmation"
         | "missed_qr"
         | "unbooked_attendance"
+      news_item_status: "draft" | "published" | "withdrawn"
       warning_type: "missed_confirmation" | "missed_qr" | "unbooked_attendance"
     }
     CompositeTypes: {
@@ -1575,13 +2423,25 @@ export type CompositeTypes<
 export const Constants = {
   private: {
     Enums: {
-      check_in_qr_scan_result: [
-        "checked_in",
-        "already_present",
-        "no_current_booking",
+      catalog_response_kind: [
+        "boolean",
+        "integer",
+        "decimal",
+        "date",
+        "short_text",
+        "single_choice",
+        "derived",
       ],
-      profile_data_source: ["self_reported", "admin_recorded"],
       reported_sex: ["masculino", "femenino", "otro", "prefiero_no_decir"],
+      research_campaign_status: [
+        "draft",
+        "scheduled",
+        "active",
+        "closed",
+        "cancelled",
+      ],
+      routine_plan_kind: ["template", "assignment"],
+      routine_plan_status: ["draft", "assigned", "archived"],
     },
   },
   public: {
@@ -1601,7 +2461,7 @@ export const Constants = {
         "qr_check_in",
         "visual_check_in",
         "visual_absence",
-        "authorization_consumed",
+        "late_qr_authorized",
         "attendance_finalized",
       ],
       booking_status: [
@@ -1618,6 +2478,7 @@ export const Constants = {
         "missed_qr",
         "unbooked_attendance",
       ],
+      news_item_status: ["draft", "published", "withdrawn"],
       warning_type: ["missed_confirmation", "missed_qr", "unbooked_attendance"],
     },
   },

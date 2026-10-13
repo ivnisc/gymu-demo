@@ -26,6 +26,8 @@ const ISSUE_RESPONSE_SCHEMA = z.discriminatedUnion("state", [
   z.object({ state: z.literal("arrived_too_late") }),
   z.object({ state: z.literal("no_current_booking") }),
   z.object({ state: z.literal("outside_window") }),
+  z.object({ state: z.literal("session_ended") }),
+  z.object({ state: z.literal("access_incomplete") }),
 ]);
 const STATUS_RESPONSE_SCHEMA = z.object({
   state: z.enum([
@@ -51,6 +53,8 @@ type QrScreen =
   | { type: "arrived_too_late" }
   | { type: "no_current_booking" }
   | { type: "outside_window" }
+  | { type: "session_ended" }
+  | { type: "access_incomplete" }
   | { type: "error" };
 type ScanResult = "checked_in" | "already_present" | "no_current_booking";
 
@@ -332,6 +336,26 @@ export default function CheckInQrPage() {
               description="Puedes marcar asistencia desde el inicio hasta 15 minutos después del comienzo de tu bloque confirmado."
               actionLabel="Actualizar"
               onAction={() => void issueQr()}
+            />
+          )}
+
+          {screen.type === "session_ended" && (
+            <QrNotice
+              icon={Clock3}
+              title="La sesión terminó"
+              description="Tu asistencia ya no puede registrarse para este bloque. Conversa con el staff si necesitas orientación."
+              actionLabel="Volver a reservas"
+              onAction={() => router.push("/reserva")}
+            />
+          )}
+
+          {screen.type === "access_incomplete" && (
+            <QrNotice
+              icon={TriangleAlert}
+              title="Completa tu acceso"
+              description="Acepta el reglamento y completa tus datos principales antes de emitir un código QR."
+              actionLabel="Ir al perfil"
+              onAction={() => router.push("/perfil#acceso")}
             />
           )}
 

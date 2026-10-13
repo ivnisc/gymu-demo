@@ -7,6 +7,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 type ReservationSuccessOverlayProps = {
   isOpen: boolean;
   onDismiss: () => void;
+  onExited: () => void;
   title: string;
 };
 
@@ -15,6 +16,7 @@ const DISPLAY_DURATION_MILLISECONDS = 1650;
 export function ReservationSuccessOverlay({
   isOpen,
   onDismiss,
+  onExited,
   title,
 }: ReservationSuccessOverlayProps) {
   const shouldReduceMotion = useReducedMotion();
@@ -27,7 +29,7 @@ export function ReservationSuccessOverlay({
   }, [isOpen, onDismiss]);
 
   return (
-    <AnimatePresence initial={false}>
+    <AnimatePresence initial={false} onExitComplete={onExited}>
       {isOpen && (
         <motion.div
           className="absolute inset-0 z-30 flex items-center justify-center bg-overlay px-5 backdrop-blur-sm"

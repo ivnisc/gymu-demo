@@ -1,14 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
+  BarChart3,
   CalendarCheck,
+  CalendarDays,
   Dumbbell,
   Flame,
   LayoutDashboard,
   LogOut,
   Menu,
+  Newspaper,
   QrCode,
   Settings,
   type LucideIcon,
@@ -37,6 +40,20 @@ type AvatarMenuItem = {
   onClick: () => void | Promise<void>;
   variant?: MenuItemVariant;
 };
+
+type DesktopNavigationItem = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+};
+
+const DESKTOP_NAVIGATION_ITEMS: DesktopNavigationItem[] = [
+  { href: "/reserva", label: "Reserva", icon: CalendarDays },
+  { href: "/perfil", label: "Perfil", icon: User },
+  { href: "/qr", label: "QR", icon: QrCode },
+  { href: "/estadisticas", label: "Cifras", icon: BarChart3 },
+  { href: "/noticias", label: "Noticias", icon: Newspaper },
+];
 
 type UserTopBarProps = {
   accountLabel?: string;
@@ -105,6 +122,7 @@ export function UserTopBar({
   showBookingsInMenu = false,
 }: UserTopBarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [activePopover, setActivePopover] = useState<ActivePopover>(null);
   const [isSignOutConfirmationOpen, setIsSignOutConfirmationOpen] = useState(false);
   const [isStreakCelebrating, setIsStreakCelebrating] = useState(false);
@@ -256,11 +274,15 @@ export function UserTopBar({
     }
   }
 
-  const hasMenu = avatarMenu.length > 0;
+  const showsDesktopNavigation = role !== undefined;
+  const hasMenu = avatarMenu.length > 0 || showsDesktopNavigation;
   const hasStreak = streakWeeks !== undefined && streakLabel !== null;
 
   return (
-    <div ref={topBarRef} className="flex min-h-12 items-center justify-between gap-3 px-4 py-1">
+    <div
+      ref={topBarRef}
+      className="flex min-h-12 items-center justify-between gap-3 px-4 pt-[max(0.25rem,env(safe-area-inset-top))] pb-1"
+    >
       <div className="flex min-w-0 items-center gap-2 text-accent">
         {hasMenu && (
           <div className="relative shrink-0">
@@ -269,7 +291,10 @@ export function UserTopBar({
               onClick={(event) => togglePopover(event, "menu")}
               aria-expanded={activePopover === "menu"}
               aria-label="Abrir menú de cuenta"
-              className="flex size-8 items-center justify-center text-accent transition-transform active:scale-95"
+              className={clsx(
+                "flex size-8 items-center justify-center text-accent transition-transform active:scale-95",
+                avatarMenu.length === 0 && "hidden lg:flex",
+              )}
             >
               <Menu className="size-4" aria-hidden="true" />
             </button>
@@ -306,6 +331,56 @@ export function UserTopBar({
                     </button>
                   );
                 })}
+
+                {showsDesktopNavigation && role && (
+                  <>
+                    <div className="mx-3 hidden border-t border-divider pt-2 lg:block">
+                      <span className="text-xs font-medium tracking-[0.12em] text-dim">
+                        @{role}
+                      </span>
+                    </div>
+                    <div className="hidden flex-col pt-1 lg:flex">
+                      {DESKTOP_NAVIGATION_ITEMS.map((menuItem) => {
+                        const Icon = menuItem.icon;
+                        const isCurrentRoute = menuItem.href === pathname;
+
+                        return (
+                          <button
+                            key={menuItem.href}
+                            type="button"
+                            onClick={() => {
+                              closePopover();
+                              router.push(menuItem.href);
+                            }}
+                            className={clsx(
+                              "flex items-center gap-2 rounded-lg px-3 py-2 text-left text-base transition-colors",
+                              isCurrentRoute
+                                ? "bg-accent/12 text-accent"
+                                : "text-foreground-muted hover:bg-accent/10 hover:text-accent",
+                            )}
+                          >
+                            <Icon className="size-4" aria-hidden="true" />
+                            {menuItem.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+
+                {showDirectSignOut && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      closePopover();
+                      setIsSignOutConfirmationOpen(true);
+                    }}
+                    className="hidden items-center gap-2 rounded-lg px-3 py-2 text-left text-base text-red-500 transition-colors hover:bg-red-500/10 lg:flex"
+                  >
+                    <LogOut className="size-4" aria-hidden="true" />
+                    Cerrar sesión
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -404,7 +479,7 @@ export function UserTopBar({
             type="button"
             onClick={() => setIsSignOutConfirmationOpen(true)}
             aria-label="Cerrar sesión"
-            className="flex size-10 shrink-0 items-center justify-center rounded-lg text-dim transition-colors hover:bg-red-500/10 hover:text-red-500 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none active:scale-95"
+            className="flex size-10 shrink-0 items-center justify-center rounded-lg text-dim transition-colors hover:bg-red-500/10 hover:text-red-500 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none active:scale-95 lg:hidden"
           >
             <LogOut className="size-4" aria-hidden="true" />
           </button>

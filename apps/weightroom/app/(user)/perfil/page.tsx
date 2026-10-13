@@ -2,7 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Pencil, X } from "lucide-react";
+import {
+  BadgeAlert,
+  BookOpenCheck,
+  CheckCircle2,
+  ClipboardList,
+  Dumbbell,
+  Loader2,
+  Pencil,
+  X,
+} from "lucide-react";
 import * as z from "zod/v4";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CREATE_SUPABASE_BROWSER_CLIENT } from "@gusm/database/client";
@@ -28,13 +37,27 @@ const PROFILE_SCHEMA = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .nullable(),
   reportedSex: z.enum(["masculino", "femenino", "otro", "prefiero_no_decir"]).nullable(),
-  heightCm: z.number().int().nullable(),
+  heightCm: z.number().nullable(),
   weightKg: z.number().nullable(),
+  academicProgramId: z.number().int().positive().nullable(),
+  academicProgramName: z.string().min(1).nullable(),
+  careerEntryYear: z.number().int().nullable(),
+  bookingProfileComplete: z.boolean(),
+  bookingProfileMissingFields: z.array(z.string()),
+  regulationAccepted: z.boolean(),
   streakWeeks: z.number().int().nonnegative(),
   themePreference: z.enum(["dark", "light"]),
 });
 
-const PROFILE_OVERVIEW_RESPONSE_SCHEMA = z.object({ profile: PROFILE_SCHEMA });
+const ACADEMIC_PROGRAM_SCHEMA = z.object({
+  academicProgramId: z.number().int().positive(),
+  programName: z.string().min(1),
+});
+
+const PROFILE_OVERVIEW_RESPONSE_SCHEMA = z.object({
+  profile: PROFILE_SCHEMA,
+  academicPrograms: z.array(ACADEMIC_PROGRAM_SCHEMA),
+});
 const PROFILE_ATTENDANCE_RESPONSE_SCHEMA = z.object({
   attendance: z.array(
     z.object({
@@ -54,12 +77,16 @@ type ProfileFormValues = {
   reportedSex: "" | "masculino" | "femenino" | "otro" | "prefiero_no_decir";
   heightCm: string;
   weightKg: string;
+  academicProgramId: string;
+  careerEntryYear: string;
 };
 type ProfileMutationPayload = {
   dateOfBirth: string | null;
   reportedSex: "masculino" | "femenino" | "otro" | "prefiero_no_decir" | null;
   heightCm: number | null;
   weightKg: number | null;
+  academicProgramId: number | null;
+  careerEntryYear: number | null;
 };
 
 const REPORTED_SEX_LABELS = {
@@ -80,6 +107,7 @@ const MIN_HEIGHT_CM = 120;
 const MAX_HEIGHT_CM = 230;
 const MIN_WEIGHT_KG = 35;
 const MAX_WEIGHT_KG = 300;
+const MIN_CAREER_ENTRY_YEAR = 2017;
 
 function getMonthStart(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), 1);
@@ -113,6 +141,8 @@ function createProfileFormValues(profile: Profile): ProfileFormValues {
     reportedSex: profile.reportedSex ?? "",
     heightCm: profile.heightCm?.toString() ?? "",
     weightKg: profile.weightKg?.toString() ?? "",
+    academicProgramId: profile.academicProgramId?.toString() ?? "",
+    careerEntryYear: profile.careerEntryYear?.toString() ?? "",
   };
 }
 
@@ -126,44 +156,78 @@ function createProfileMutationPayload(
     return { error: "Ingresa una fecha de nacimiento válida." };
   }
 
-  if ((dateOfBirth === null) !== (reportedSex === null)) {
-    return { error: "Fecha de nacimiento y sexo declarado deben registrarse juntos." };
-  }
-
   const heightCm = formValues.heightCm === "" ? null : Number(formValues.heightCm);
-  if (!Number.isInteger(heightCm) && heightCm !== null) {
-    return { error: "La altura debe ser un número entero." };
+  if (!Number.isFinite(heightCm) && heightCm !== null) {
+    return { error: "La altura debe ser un número válido." };
+  }
+  if (heightCm !== null && (heightCm < MIN_HEIGHT_CM || heightCm > MAX_HEIGHT_CM)) {
+    return { error: `La altura debe estar entre ${MIN_HEIGHT_CM} y ${MAX_HEIGHT_CM} cm.` };
   }
 
   const weightKg = formValues.weightKg === "" ? null : Number(formValues.weightKg);
   if (!Number.isFinite(weightKg) && weightKg !== null) {
     return { error: "El peso debe ser un número válido." };
   }
-
-  if (dateOfBirth === null && heightCm === null && weightKg === null) {
-    return { error: "Ingresa al menos un dato voluntario para guardar." };
+  if (weightKg !== null && (weightKg < MIN_WEIGHT_KG || weightKg > MAX_WEIGHT_KG)) {
+    return { error: `El peso debe estar entre ${MIN_WEIGHT_KG} y ${MAX_WEIGHT_KG} kg.` };
   }
 
-  return { data: { dateOfBirth, reportedSex, heightCm, weightKg } };
+  const academicProgramId =
+    formValues.academicProgramId === "" ? null : Number(formValues.academicProgramId);
+  if (!Number.isInteger(academicProgramId) && academicProgramId !== null) {
+    return { error: "Selecciona una carrera válida." };
+  }
+
+  const careerEntryYear =
+    formValues.careerEntryYear === "" ? null : Number(formValues.careerEntryYear);
+  if (!Number.isInteger(careerEntryYear) && careerEntryYear !== null) {
+    return { error: "El año de ingreso debe ser un número entero." };
+  }
+  if (
+    careerEntryYear !== null &&
+    (careerEntryYear < MIN_CAREER_ENTRY_YEAR || careerEntryYear > getSantiagoToday().getFullYear())
+  ) {
+    return {
+      error: `El año de ingreso debe estar entre ${MIN_CAREER_ENTRY_YEAR} y ${getSantiagoToday().getFullYear()}.`,
+    };
+  }
+
+  return {
+    data: {
+      dateOfBirth,
+      reportedSex,
+      heightCm,
+      weightKg,
+      academicProgramId,
+      careerEntryYear,
+    },
+  };
 }
 
 function getProfileValue(value: string | number | null) {
   return value === null ? "No informado" : value;
 }
 
-function normalizeHeightInput(value: string) {
-  const heightCm = Number(value);
-  if (!Number.isInteger(heightCm)) return value;
+function truncateHeightInput(value: string) {
+  const normalizedValue = value.replace(",", ".").replace(/[^\d.]/g, "");
+  const parts = normalizedValue.split(".");
+  const integerPart = (parts[0] ?? "").slice(0, 3);
 
-  return String(Math.min(Math.max(heightCm, MIN_HEIGHT_CM), MAX_HEIGHT_CM));
+  if (parts.length === 1) return integerPart;
+
+  return `${integerPart}.${parts.slice(1).join("").slice(0, 2)}`;
 }
 
-function normalizeWeightInput(value: string) {
-  const weightKg = Number(value);
-  if (!Number.isFinite(weightKg)) return value;
+function truncateWeightInput(value: string) {
+  const normalizedValue = value.replace(",", ".").replace(/[^\d.]/g, "");
+  const parts = normalizedValue.split(".");
+  const integerPart = parts[0] ?? "";
+  const decimalParts = parts.slice(1);
+  const truncatedIntegerPart = integerPart.slice(0, 3);
 
-  const normalizedWeight = Math.min(Math.max(weightKg, MIN_WEIGHT_KG), MAX_WEIGHT_KG);
-  return String(Math.round(normalizedWeight * 100) / 100);
+  if (decimalParts.length === 0) return truncatedIntegerPart;
+
+  return `${truncatedIntegerPart}.${decimalParts.join("").slice(0, 2)}`;
 }
 
 async function getProfileOverview(monthQuery: string): Promise<ProfileOverviewResponse> {
@@ -230,9 +294,12 @@ export default function ProfilePage() {
     reportedSex: "",
     heightCm: "",
     weightKg: "",
+    academicProgramId: "",
+    careerEntryYear: "",
   });
   const [formError, setFormError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isAccessPreview, setIsAccessPreview] = useState(false);
 
   const monthQuery = getMonthQuery(visibleMonth);
   const profileQuery = useQuery({
@@ -247,6 +314,7 @@ export default function ProfilePage() {
     staleTime: 5 * 60_000,
   });
   const profile = profileQuery.data?.profile ?? null;
+  const academicPrograms = profileQuery.data?.academicPrograms ?? [];
   const attendanceForVisibleMonth: ProfileAttendanceEntry[] =
     attendanceQuery.data?.monthQuery === monthQuery ? attendanceQuery.data.attendance : [];
   const isAttendanceLoading = attendanceQuery.isLoading;
@@ -261,13 +329,24 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!profile) return;
 
-    queryClient.setQueryData<CurrentUser>(CURRENT_USER_QUERY_KEY, {
-      userName: profile.userName,
-      role: profile.role,
-      streakWeeks: profile.streakWeeks,
-      themePreference: profile.themePreference,
-    });
+    queryClient.setQueryData<CurrentUser>(CURRENT_USER_QUERY_KEY, (currentUser) =>
+      currentUser
+        ? {
+            ...currentUser,
+            userName: profile.userName,
+            role: profile.role,
+            bookingProfileComplete: profile.bookingProfileComplete,
+            regulationAccepted: profile.regulationAccepted,
+            streakWeeks: profile.streakWeeks,
+            themePreference: profile.themePreference,
+          }
+        : currentUser,
+    );
   }, [profile, queryClient]);
+
+  useEffect(() => {
+    setIsAccessPreview(new URLSearchParams(window.location.search).get("demo") === "access");
+  }, []);
 
   function openEditor() {
     if (!profile) return;
@@ -366,6 +445,8 @@ export default function ProfilePage() {
   const cachedStreakWeeks = profileQuery.data?.profile.streakWeeks ?? 0;
   const age = profile?.dateOfBirth ? getAge(profile.dateOfBirth, today) : null;
   const sexLabel = profile?.reportedSex ? REPORTED_SEX_LABELS[profile.reportedSex] : null;
+  const isMandatoryProfileComplete = profile?.bookingProfileComplete ?? false;
+  const isRegulationAccepted = profile?.regulationAccepted ?? false;
   return (
     <main className="flex min-h-svh w-full justify-center bg-bg">
       <div className="flex h-svh gusm-app-shell flex-col overflow-hidden">
@@ -419,15 +500,15 @@ export default function ProfilePage() {
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="text-xs font-medium tracking-[0.12em] text-dim uppercase">
-                      Datos opcionales
+                      Información personal
                     </p>
-                    <h2 className="mt-1 text-lg font-semibold text-foreground">Tu información</h2>
+                    <h2 className="mt-1 text-lg font-semibold text-foreground">Datos personales</h2>
                   </div>
                   <button
                     type="button"
                     onClick={openEditor}
                     disabled={!profile}
-                    aria-label="Editar datos opcionales"
+                    aria-label="Editar información personal"
                     className="flex size-11 items-center justify-center rounded-full text-accent transition-colors hover:bg-accent/10 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <Pencil className="size-4" aria-hidden="true" />
@@ -463,7 +544,156 @@ export default function ProfilePage() {
                         : `${profile.weightKg} kg`}
                     </dd>
                   </div>
+                  <div className="col-span-2 min-w-0 px-3 py-3">
+                    <dt className="text-sm text-dim">Carrera</dt>
+                    <dd className="mt-1 truncate text-base font-medium text-foreground">
+                      {getProfileValue(profile?.academicProgramName ?? null)}
+                    </dd>
+                  </div>
+                  <div className="min-w-0 px-3 py-3">
+                    <dt className="text-sm text-dim">Año de ingreso</dt>
+                    <dd className="mt-1 truncate text-base font-medium text-foreground">
+                      {getProfileValue(profile?.careerEntryYear ?? null)}
+                    </dd>
+                  </div>
                 </dl>
+              </section>
+
+              <section
+                id="acceso"
+                className="rounded-2xl border border-accent/15 bg-input/30 px-4 py-4"
+              >
+                <p className="text-xs font-medium tracking-[0.12em] text-dim uppercase">
+                  Acceso a la sala
+                </p>
+                <h2 className="mt-1 text-lg font-semibold text-foreground">
+                  Requisitos para reservar
+                </h2>
+                <p className="mt-2 text-sm leading-5 text-muted">
+                  Debes completar los siguientes pasos para poder reservar.
+                </p>
+
+                <div className="mt-4 divide-y divide-accent/15 border-y border-accent/15">
+                  <div className="flex items-center justify-between gap-4 py-3">
+                    <div className="min-w-0">
+                      <p className="text-base font-medium text-foreground">Reglamento de uso</p>
+                      {!isRegulationAccepted && (
+                        <p className="mt-0.5 text-sm text-muted">Pendiente de aceptación</p>
+                      )}
+                    </div>
+                    {isRegulationAccepted ? (
+                      <CheckCircle2
+                        className="size-5 shrink-0 text-emerald-500"
+                        aria-label="Aceptado"
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => router.push("/terminos")}
+                        className="shrink-0 gusm-button-primary px-3"
+                      >
+                        Revisar
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between gap-4 py-3">
+                    <div className="min-w-0">
+                      <p className="text-base font-medium text-foreground">Datos principales</p>
+                    </div>
+                    {isMandatoryProfileComplete ? (
+                      <CheckCircle2
+                        className="size-5 shrink-0 text-emerald-500"
+                        aria-label="Completos"
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={openEditor}
+                        className="shrink-0 gusm-button-primary px-3"
+                      >
+                        Completar
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </section>
+
+              {isAccessPreview && (
+                <section className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-4">
+                  <div className="flex gap-3">
+                    <BadgeAlert
+                      className="mt-0.5 size-5 shrink-0 text-amber-500"
+                      aria-hidden="true"
+                    />
+                    <div>
+                      <h2 className="text-base font-semibold text-foreground">Vista de revisión</h2>
+                      <p className="mt-1 text-sm leading-5 text-muted">
+                        Este estado simula un reglamento pendiente para validar el flujo con
+                        DEFIDER.
+                      </p>
+                    </div>
+                  </div>
+                </section>
+              )}
+
+              {isAccessPreview && (
+                <section className="rounded-2xl border border-accent/15 bg-input/30 px-4 py-4">
+                  <p className="text-xs font-medium tracking-[0.12em] text-dim uppercase">Avisos</p>
+                  <h2 className="mt-1 text-lg font-semibold text-foreground">
+                    Estado de tu cuenta
+                  </h2>
+                  <div className="mt-4 divide-y divide-accent/15 border-y border-accent/15">
+                    <div className="flex gap-3 py-3">
+                      <BadgeAlert
+                        className="mt-0.5 size-5 shrink-0 text-amber-500"
+                        aria-hidden="true"
+                      />
+                      <div>
+                        <p className="text-base font-medium text-foreground">
+                          Advertencia operativa
+                        </p>
+                        <p className="mt-0.5 text-sm leading-5 text-muted">
+                          No confirmaste una reserva antes del cierre de su ventana.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-3 py-3">
+                      <ClipboardList
+                        className="mt-0.5 size-5 shrink-0 text-accent"
+                        aria-hidden="true"
+                      />
+                      <div>
+                        <p className="text-base font-medium text-foreground">Rutina asignada</p>
+                        <p className="mt-0.5 text-sm leading-5 text-muted">
+                          Tren superior · Lunes. En la versión final podrás abrirla desde aquí.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => router.push("/rutinas")}
+                    className="mt-4 flex w-full gusm-button-primary items-center justify-center gap-2"
+                  >
+                    <Dumbbell className="size-4" aria-hidden="true" />
+                    Ver rutina asignada
+                  </button>
+                </section>
+              )}
+
+              <section className="rounded-2xl border border-accent/15 bg-input/30 px-4 py-4">
+                <p className="text-xs font-medium tracking-[0.12em] text-dim uppercase">
+                  Documentos
+                </p>
+                <button
+                  type="button"
+                  onClick={() => router.push("/terminos")}
+                  className="mt-2 flex items-center gap-2 text-base font-medium text-accent"
+                >
+                  <BookOpenCheck className="size-4" aria-hidden="true" />
+                  Consultar reglamento de uso
+                </button>
               </section>
 
               <section className="rounded-2xl border border-accent/15 bg-input/30 px-4 py-4">
@@ -491,7 +721,7 @@ export default function ProfilePage() {
       {isEditorOpen && (
         <div
           role="presentation"
-          className="fixed inset-0 z-50 flex items-end justify-center bg-overlay px-3 py-3 backdrop-blur-sm sm:items-center"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-overlay px-4 py-4 backdrop-blur-sm sm:items-center sm:px-6"
           onMouseDown={closeEditor}
         >
           <form
@@ -500,12 +730,12 @@ export default function ProfilePage() {
             role="dialog"
             onSubmit={saveProfile}
             onMouseDown={(event) => event.stopPropagation()}
-            className="flex gusm-app-shell w-full flex-col gap-4 rounded-2xl border border-accent/20 px-5 py-5 shadow-2xl"
+            className="flex w-full max-w-[var(--container-app)] flex-col gap-4 rounded-2xl border border-accent/20 bg-surface px-5 py-5 shadow-2xl"
           >
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-medium tracking-[0.12em] text-dim uppercase">
-                  Datos opcionales
+                  Información personal
                 </p>
                 <h2
                   id="profile-editor-title"
@@ -525,12 +755,13 @@ export default function ProfilePage() {
               </button>
             </div>
 
-            <p className="text-sm leading-5 text-muted">
-              Estos datos son opcionales. Puedes actualizarlos cuando lo necesites.
-            </p>
+            <p className="text-sm leading-5 text-muted">Completa los campos requeridos.</p>
 
             <label className="flex flex-col gap-2 text-sm text-foreground-muted">
-              Fecha de nacimiento
+              <span className="flex items-center justify-between gap-3">
+                Fecha de nacimiento
+                <span className="text-red-500">Requerido</span>
+              </span>
               <input
                 type="date"
                 value={formValues.dateOfBirth}
@@ -546,7 +777,10 @@ export default function ProfilePage() {
             </label>
 
             <label className="flex flex-col gap-2 text-sm text-foreground-muted">
-              Sexo declarado
+              <span className="flex items-center justify-between gap-3">
+                Sexo declarado
+                <span className="text-red-500">Requerido</span>
+              </span>
               <select
                 value={formValues.reportedSex}
                 onChange={(event) =>
@@ -573,22 +807,19 @@ export default function ProfilePage() {
 
             <div className="flex flex-col gap-4">
               <label className="flex min-w-0 flex-col gap-2 text-sm text-foreground-muted">
-                Altura (cm)
+                <span className="flex items-center justify-between gap-3">
+                  Altura (cm)
+                  <span className="text-red-500">Requerido</span>
+                </span>
                 <input
-                  type="number"
-                  inputMode="numeric"
-                  step="1"
+                  type="text"
+                  inputMode="decimal"
+                  maxLength={6}
                   value={formValues.heightCm}
                   onChange={(event) =>
                     setFormValues((currentValues) => ({
                       ...currentValues,
-                      heightCm: event.target.value,
-                    }))
-                  }
-                  onBlur={(event) =>
-                    setFormValues((currentValues) => ({
-                      ...currentValues,
-                      heightCm: normalizeHeightInput(event.target.value),
+                      heightCm: truncateHeightInput(event.target.value),
                     }))
                   }
                   className="gusm-input-primary"
@@ -596,28 +827,72 @@ export default function ProfilePage() {
               </label>
 
               <label className="flex min-w-0 flex-col gap-2 text-sm text-foreground-muted">
-                Peso (kg)
+                <span className="flex items-center justify-between gap-3">
+                  Peso (kg)
+                  <span className="text-red-500">Requerido</span>
+                </span>
                 <input
-                  type="number"
+                  type="text"
                   inputMode="decimal"
-                  step="0.01"
+                  maxLength={6}
                   value={formValues.weightKg}
                   onChange={(event) =>
                     setFormValues((currentValues) => ({
                       ...currentValues,
-                      weightKg: event.target.value,
-                    }))
-                  }
-                  onBlur={(event) =>
-                    setFormValues((currentValues) => ({
-                      ...currentValues,
-                      weightKg: normalizeWeightInput(event.target.value),
+                      weightKg: truncateWeightInput(event.target.value),
                     }))
                   }
                   className="gusm-input-primary"
                 />
               </label>
             </div>
+
+            <label className="flex flex-col gap-2 text-sm text-foreground-muted">
+              <span className="flex items-center justify-between gap-3">
+                Carrera
+                <span className="text-red-500">Requerido</span>
+              </span>
+              <select
+                value={formValues.academicProgramId}
+                onChange={(event) =>
+                  setFormValues((currentValues) => ({
+                    ...currentValues,
+                    academicProgramId: event.target.value,
+                  }))
+                }
+                className="gusm-input-primary"
+              >
+                <option value="">Selecciona tu carrera</option>
+                {academicPrograms.map((academicProgram) => (
+                  <option
+                    key={academicProgram.academicProgramId}
+                    value={academicProgram.academicProgramId}
+                  >
+                    {academicProgram.programName}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="flex flex-col gap-2 text-sm text-foreground-muted">
+              <span className="flex items-center justify-between gap-3">
+                Año de ingreso a la carrera
+                <span className="text-red-500">Requerido</span>
+              </span>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={4}
+                value={formValues.careerEntryYear}
+                onChange={(event) =>
+                  setFormValues((currentValues) => ({
+                    ...currentValues,
+                    careerEntryYear: event.target.value.replace(/\D/g, "").slice(0, 4),
+                  }))
+                }
+                className="gusm-input-primary"
+              />
+            </label>
 
             {formError && (
               <p role="alert" className="text-sm text-rose-400">

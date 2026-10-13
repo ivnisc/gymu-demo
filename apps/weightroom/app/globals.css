@@ -34,7 +34,6 @@
 
 @theme {
   --container-app: 32.5rem;
-  --container-app-desktop: 72rem;
   --spacing-control: 3.125rem;
 
   --text-xxs: 0.625rem; /* 10px */
@@ -151,6 +150,11 @@ html.gymu-app-viewport body {
   overscroll-behavior: none;
 }
 
+html,
+body {
+  background-color: var(--color-surface);
+}
+
 :root[data-theme-switching],
 :root[data-theme-switching] *,
 :root[data-theme-switching] *::before,
@@ -211,6 +215,41 @@ html.gymu-app-viewport body {
   max-width: var(--container-app);
   overflow-x: hidden;
   background-color: var(--color-surface);
+}
+
+@media (min-width: 1024px) {
+  .gusm-app-shell {
+    max-width: none;
+  }
+}
+
+.gymu-theme-transition::view-transition-group(root) {
+  animation-duration: 650ms;
+}
+
+.gymu-theme-transition::view-transition-old(root),
+.gymu-theme-transition::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+.gymu-theme-transition::view-transition-old(root) {
+  z-index: 1;
+}
+
+.gymu-theme-transition::view-transition-new(root) {
+  z-index: 2;
+  animation: gymu-diagonal-theme 650ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+@keyframes gymu-diagonal-theme {
+  from {
+    clip-path: polygon(100% 0, 100% 0, 100% 0);
+  }
+
+  to {
+    clip-path: polygon(-100% 0, 100% 0, 100% 200%);
+  }
 }
 
 @utility gusm-app-overlay {

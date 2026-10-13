@@ -3,6 +3,7 @@
 import { QueryClient } from "@tanstack/react-query";
 
 const STALE_TIME_MILLISECONDS = 60_000;
+const GC_TIME_MILLISECONDS = 5 * 60_000;
 
 function createQueryClient(): QueryClient {
   return new QueryClient({
@@ -14,6 +15,7 @@ function createQueryClient(): QueryClient {
         refetchOnWindowFocus: false,
         retry: 1,
         staleTime: STALE_TIME_MILLISECONDS,
+        gcTime: GC_TIME_MILLISECONDS,
       },
     },
   });

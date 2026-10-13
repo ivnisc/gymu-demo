@@ -21,14 +21,15 @@ const CONFIGURATION_SCHEMA = z.object({
   ),
   dateClosures: z.array(
     z.object({
+      closureId: z.string().uuid(),
       date: z.string().date(),
       timeBlockId: z.number().int().positive(),
       reason: z.string().min(3).max(240),
     }),
   ),
-  dateClosurePeriods: z.array(
+  fullDayClosures: z.array(
     z.object({
-      closurePeriodId: z.string().uuid(),
+      closureId: z.string().uuid(),
       startDate: z.string().date(),
       endDate: z.string().date(),
       reason: z.string().min(3).max(240),
@@ -36,6 +37,7 @@ const CONFIGURATION_SCHEMA = z.object({
   ),
   weeklyClosures: z.array(
     z.object({
+      closureId: z.string().uuid(),
       isoWeekday: z.number().int().min(1).max(7),
       timeBlockId: z.number().int().positive(),
       reason: z.string().min(3).max(240),
@@ -64,7 +66,17 @@ export async function GET(request: NextRequest) {
     return createResponse(response, 503, { code: "configuration_unavailable" });
   }
 
-  return createResponse(response, 200, configuration.data);
+  const { fullDayClosures, ...configurationData } = configuration.data;
+
+  return createResponse(response, 200, {
+    ...configurationData,
+    dateClosurePeriods: fullDayClosures.map((closure) => ({
+      closurePeriodId: closure.closureId,
+      startDate: closure.startDate,
+      endDate: closure.endDate,
+      reason: closure.reason,
+    })),
+  });
 }
 
 export async function POST(request: NextRequest) {

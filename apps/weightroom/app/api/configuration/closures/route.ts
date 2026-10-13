@@ -28,13 +28,21 @@ const CREATE_CLOSURE_SCHEMA = z.discriminatedUnion("scope", [
   WEEKLY_CLOSURE_SCHEMA.extend({ action: z.literal("create"), reason: REASON_SCHEMA }),
 ]);
 const REMOVE_CLOSURE_SCHEMA = z.discriminatedUnion("scope", [
-  DATE_CLOSURE_SCHEMA.extend({ action: z.literal("remove") }),
+  z.object({
+    action: z.literal("remove"),
+    scope: z.literal("date"),
+    closureId: z.string().uuid(),
+  }),
   z.object({
     action: z.literal("remove"),
     scope: z.literal("period"),
     closurePeriodId: z.string().uuid(),
   }),
-  WEEKLY_CLOSURE_SCHEMA.extend({ action: z.literal("remove") }),
+  z.object({
+    action: z.literal("remove"),
+    scope: z.literal("weekly"),
+    closureId: z.string().uuid(),
+  }),
 ]);
 
 export async function POST(request: NextRequest) {
@@ -70,8 +78,8 @@ export async function POST(request: NextRequest) {
   } else if (closure.data.scope === "period") {
     result = await serviceRoleClient.rpc("upsert_admin_full_day_closure_period", {
       p_actor_user_id: userId,
-      p_closure_start_date: closure.data.startDate,
-      p_closure_end_date: closure.data.endDate,
+      p_start_date: closure.data.startDate,
+      p_end_date: closure.data.endDate,
       p_reason: closure.data.reason,
     });
   } else {
@@ -115,10 +123,9 @@ export async function DELETE(request: NextRequest) {
   const serviceRoleClient = CREATE_SUPABASE_SERVICE_ROLE_CLIENT();
   let result;
   if (closure.data.scope === "date") {
-    result = await serviceRoleClient.rpc("remove_admin_date_time_block_closure", {
+    result = await serviceRoleClient.rpc("remove_admin_time_block_closure", {
       p_actor_user_id: userId,
-      p_time_block_id: closure.data.timeBlockId,
-      p_closure_date: closure.data.date,
+      p_time_block_closure_id: closure.data.closureId,
     });
   } else if (closure.data.scope === "period") {
     result = await serviceRoleClient.rpc("remove_admin_full_day_closure_period", {
@@ -128,8 +135,7 @@ export async function DELETE(request: NextRequest) {
   } else {
     result = await serviceRoleClient.rpc("remove_admin_weekly_time_block_closure", {
       p_actor_user_id: userId,
-      p_time_block_id: closure.data.timeBlockId,
-      p_iso_weekday: closure.data.isoWeekday,
+      p_weekly_time_block_closure_id: closure.data.closureId,
     });
   }
 

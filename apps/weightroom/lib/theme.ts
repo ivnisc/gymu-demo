@@ -9,9 +9,11 @@ export function getDocumentThemePreference(): ThemePreference {
 
 export function applyThemePreference(themePreference: ThemePreference) {
   const root = document.documentElement;
+  const themeColor = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
 
   root.setAttribute(THEME_SWITCHING_ATTRIBUTE, "");
   root.dataset.theme = themePreference;
+  themeColor?.setAttribute("content", themePreference === "light" ? "#ffffff" : "#0a0a0a");
 
   try {
     window.localStorage.setItem(THEME_PREFERENCE_STORAGE_KEY, themePreference);
@@ -24,4 +26,40 @@ export function applyThemePreference(themePreference: ThemePreference) {
       root.removeAttribute(THEME_SWITCHING_ATTRIBUTE);
     });
   });
+}
+
+export async function transitionThemePreference(
+  themePreference: ThemePreference,
+  onThemeApplied: () => void,
+) {
+  function applyTheme() {
+    applyThemePreference(themePreference);
+    onThemeApplied();
+  }
+
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    applyTheme();
+    return;
+  }
+
+  if (!document.startViewTransition) {
+    applyTheme();
+    document.documentElement.animate([{ opacity: 0.6 }, { opacity: 1 }], {
+      duration: 300,
+      easing: "ease",
+    });
+    return;
+  }
+
+  const root = document.documentElement;
+  root.classList.add("gymu-theme-transition");
+
+  try {
+    const transition = document.startViewTransition(applyTheme);
+    await transition.finished;
+  } catch {
+    applyTheme();
+  } finally {
+    root.classList.remove("gymu-theme-transition");
+  }
 }

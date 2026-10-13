@@ -102,7 +102,7 @@ export function AppNavigation({ children }: AppNavigationProps) {
         <nav
           aria-label="Navegación principal"
           className={clsx(
-            "fixed bottom-[max(env(safe-area-inset-bottom),0.75rem)] left-1/2 z-30 flex min-h-17 w-fit max-w-[calc(100%-1rem)] -translate-x-1/2 items-center justify-center rounded-s-full rounded-e-full border border-divider/65 bg-transparent py-2 shadow-[0_6px_20px_rgb(0_0_0_/_0.12)] backdrop-blur-[2px] backdrop-saturate-125",
+            "fixed bottom-[max(env(safe-area-inset-bottom),0.75rem)] left-1/2 z-30 flex min-h-17 w-fit max-w-[calc(100%-1rem)] -translate-x-1/2 items-center justify-center rounded-s-full rounded-e-full border border-divider/65 bg-transparent py-2 shadow-[0_6px_20px_rgb(0_0_0_/_0.12)] backdrop-blur-[2px] backdrop-saturate-125 lg:hidden",
             items.length > 4 ? "gap-1.5 px-3" : "gap-3 px-4",
           )}
         >

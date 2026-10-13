@@ -1,6 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { CREATE_SUPABASE_SERVER_CLIENT } from "@gusm/database/client";
-import { CREATE_SUPABASE_SERVICE_ROLE_CLIENT } from "@gusm/database/service-role";
 
 export const runtime = "nodejs";
 
@@ -36,12 +35,12 @@ function isSameOrigin(request: NextRequest) {
   return !origin || origin === requestOrigin;
 }
 
-function isTermsAcceptanceRequest(payload: unknown) {
+function isRegulationAcceptanceRequest(payload: unknown) {
   return (
     typeof payload === "object" &&
     payload !== null &&
-    "acceptCurrentTerms" in payload &&
-    payload.acceptCurrentTerms === true
+    "acceptRegulation" in payload &&
+    payload.acceptRegulation === true
   );
 }
 
@@ -58,7 +57,7 @@ export async function POST(request: NextRequest) {
     return createErrorResponse(400);
   }
 
-  if (!isTermsAcceptanceRequest(payload)) {
+  if (!isRegulationAcceptanceRequest(payload)) {
     return createErrorResponse(400);
   }
 
@@ -83,31 +82,10 @@ export async function POST(request: NextRequest) {
     return createErrorResponse(401);
   }
 
-  const serviceRoleClient = CREATE_SUPABASE_SERVICE_ROLE_CLIENT();
-  const { data: systemSettings, error: settingsError } = await serviceRoleClient
-    .from("system_settings")
-    .select("current_terms_version")
-    .eq("singleton", true)
-    .single();
+  const { error } = await sessionClient.rpc("accept_regulation");
 
-  if (settingsError || !systemSettings) {
-    console.error("[TERMS] could not read the current terms version.");
-    return createErrorResponse(503);
-  }
-
-  const { data: appUser, error: appUserError } = await serviceRoleClient
-    .from("app_user")
-    .update({
-      accepted_terms_version: systemSettings.current_terms_version,
-      terms_accepted_at: new Date().toISOString(),
-    })
-    .eq("user_id", userId)
-    .is("disabled_at", null)
-    .select("user_id")
-    .maybeSingle();
-
-  if (appUserError || !appUser) {
-    console.error("[TERMS] could not record terms acceptance.");
+  if (error) {
+    console.error("[REGULATION] could not record regulation acceptance.");
     return createErrorResponse(403);
   }
 

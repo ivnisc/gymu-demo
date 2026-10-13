@@ -9,22 +9,16 @@ type CapacitySlotsProps = {
   total: number;
 };
 
-const CAPACITY_SEGMENTS = 3;
-
 function clampOccupiedSlots(occupied: number, total: number): number {
   return Math.max(0, Math.min(occupied, total));
 }
 
-function getSegmentFill(occupied: number, total: number, segmentIndex: number): number {
-  const segmentCapacity = total / CAPACITY_SEGMENTS;
-  const segmentStart = segmentIndex * segmentCapacity;
+function getCapacityFillClass(occupied: number, total: number): string {
+  const blueCapacity = Math.round((total * 7) / 15);
+  const yellowCapacity = Math.round((total * 11) / 15);
 
-  return Math.max(0, Math.min((occupied - segmentStart) / segmentCapacity, 1));
-}
-
-function getSegmentFillClass(segmentIndex: number): string {
-  if (segmentIndex === 0) return "bg-capacity-segment-blue";
-  if (segmentIndex === 1) return "bg-capacity-segment-yellow";
+  if (occupied <= blueCapacity) return "bg-capacity-segment-blue";
+  if (occupied <= yellowCapacity) return "bg-capacity-segment-yellow";
   return "bg-capacity-segment-red";
 }
 
@@ -34,39 +28,28 @@ export function CapacitySlots({ isDisabled = false, occupied, total }: CapacityS
 
   return (
     <div
-      className="grid min-w-0 flex-1 grid-cols-3 gap-0.5"
+      className={clsx(
+        "relative h-2 min-w-0 flex-1 overflow-hidden rounded-full",
+        isDisabled ? "bg-capacity-disabled-track" : "bg-ghost",
+      )}
       aria-label={`${occupiedSlots} de ${total} cupos ocupados`}
       role="img"
     >
-      {Array.from({ length: CAPACITY_SEGMENTS }, (_, index) => {
-        const fill = getSegmentFill(occupiedSlots, total, index);
-
-        return (
-          <span
-            key={index}
-            aria-hidden="true"
-            className={clsx(
-              "relative h-2.5 overflow-hidden rounded-full border border-divider",
-              isDisabled ? "bg-capacity-disabled-track" : "bg-ghost",
-              index === 1 && "scale-y-90",
-            )}
-          >
-            <motion.span
-              className={clsx(
-                "absolute inset-y-0 left-0 w-full origin-left rounded-full",
-                isDisabled ? "bg-capacity-disabled-fill" : getSegmentFillClass(index),
-              )}
-              initial={false}
-              animate={{ opacity: fill === 0 ? 0 : 1, scaleX: fill }}
-              transition={
-                shouldReduceMotion
-                  ? { duration: 0 }
-                  : { type: "spring", stiffness: 260, damping: 30, mass: 0.45 }
-              }
-            />
-          </span>
-        );
-      })}
+      <motion.span
+        aria-hidden="true"
+        className={clsx(
+          "absolute inset-y-0 left-0 w-full origin-left rounded-full",
+          isDisabled ? "bg-capacity-disabled-fill" : getCapacityFillClass(occupiedSlots, total),
+        )}
+        initial={false}
+        animate={{
+          opacity: occupiedSlots === 0 ? 0 : 1,
+          transform: `scaleX(${occupiedSlots / total})`,
+        }}
+        transition={
+          shouldReduceMotion ? { duration: 0 } : { duration: 0.28, ease: [0.23, 1, 0.32, 1] }
+        }
+      />
     </div>
   );
 }

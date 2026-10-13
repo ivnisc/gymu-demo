@@ -22,29 +22,12 @@ const PROFILE_DATA_SCHEMA = z
   .object({
     dateOfBirth: DATE_OF_BIRTH_SCHEMA.nullable(),
     reportedSex: z.enum(["masculino", "femenino", "otro", "prefiero_no_decir"]).nullable(),
-    heightCm: z.number().int().finite().nullable(),
+    heightCm: z.number().finite().nullable(),
     weightKg: z.number().finite().nullable(),
+    academicProgramId: z.number().int().positive().nullable(),
+    careerEntryYear: z.number().int().min(2017).nullable(),
   })
-  .strict()
-  .superRefine((profileData, context) => {
-    if ((profileData.dateOfBirth === null) !== (profileData.reportedSex === null)) {
-      context.addIssue({
-        code: "custom",
-        message: "dateOfBirth and reportedSex must be supplied together.",
-      });
-    }
-
-    if (
-      profileData.dateOfBirth === null &&
-      profileData.heightCm === null &&
-      profileData.weightKg === null
-    ) {
-      context.addIssue({
-        code: "custom",
-        message: "At least one profile value is required.",
-      });
-    }
-  });
+  .strict();
 
 const PROFILE_OVERVIEW_SCHEMA = z.object({
   user_name: z.string().min(1),
@@ -52,10 +35,20 @@ const PROFILE_OVERVIEW_SCHEMA = z.object({
   institutional_username: z.string().min(1).nullable(),
   date_of_birth: DATE_OF_BIRTH_SCHEMA.nullable(),
   reported_sex: z.enum(["masculino", "femenino", "otro", "prefiero_no_decir"]).nullable(),
-  height_cm: z.number().int().nullable(),
+  height_cm: z.number().nullable(),
   weight_kg: z.number().nullable(),
+  academic_program_id: z.number().int().positive().nullable(),
+  academic_program_name: z.string().min(1).nullable(),
+  career_entry_year: z.number().int().nullable(),
+  booking_profile_complete: z.boolean(),
+  booking_profile_missing_fields: z.array(z.string()),
   streak_weeks: z.number().int().nonnegative(),
   theme_preference: z.enum(["dark", "light"]),
+});
+
+const ACADEMIC_PROGRAM_SCHEMA = z.object({
+  academic_program_id: z.number().int().positive(),
+  program_name: z.string().min(1),
 });
 
 const MONTHLY_ATTENDANCE_SCHEMA = z.object({
@@ -111,6 +104,21 @@ async function getAuthenticatedUserId(request: NextRequest, response: NextRespon
   return userId;
 }
 
+async function getAcademicPrograms(request: NextRequest, response: NextResponse) {
+  const sessionClient = CREATE_SUPABASE_SERVER_CLIENT({
+    getAll() {
+      return request.cookies.getAll();
+    },
+    setAll(cookiesToSet) {
+      for (const cookie of cookiesToSet) {
+        response.cookies.set(cookie.name, cookie.value, cookie.options);
+      }
+    },
+  });
+
+  return sessionClient.rpc("get_academic_programs");
+}
+
 export async function GET(request: NextRequest) {
   const month = PROFILE_MONTH_SCHEMA.safeParse(request.nextUrl.searchParams.get("month"));
   const includeAttendance = INCLUDE_ATTENDANCE_SCHEMA.safeParse(
@@ -140,23 +148,39 @@ export async function GET(request: NextRequest) {
 
   const serviceRoleClient = CREATE_SUPABASE_SERVICE_ROLE_CLIENT();
   const monthStart = `${month.data}-01`;
-  const [overviewResult, attendanceResult] = await Promise.all([
-    includeOverview.data === "true"
-      ? serviceRoleClient.rpc("get_profile_overview", {
-          p_actor_user_id: userId,
-          p_target_user_id: userId,
-        })
-      : Promise.resolve(null),
-    includeAttendance.data === "true"
-      ? serviceRoleClient.rpc("get_profile_monthly_attendance", {
-          p_actor_user_id: userId,
-          p_target_user_id: userId,
-          p_month_start: monthStart,
-        })
-      : Promise.resolve(null),
-  ]);
+  const [overviewResult, attendanceResult, academicProgramsResult, appUserResult] =
+    await Promise.all([
+      includeOverview.data === "true"
+        ? serviceRoleClient.rpc("get_profile_overview", {
+            p_actor_user_id: userId,
+            p_target_user_id: userId,
+          })
+        : Promise.resolve(null),
+      includeAttendance.data === "true"
+        ? serviceRoleClient.rpc("get_profile_monthly_attendance", {
+            p_actor_user_id: userId,
+            p_target_user_id: userId,
+            p_month_start: monthStart,
+          })
+        : Promise.resolve(null),
+      includeOverview.data === "true"
+        ? getAcademicPrograms(request, response)
+        : Promise.resolve(null),
+      includeOverview.data === "true"
+        ? serviceRoleClient
+            .from("app_user")
+            .select("regulation_accepted_at")
+            .eq("user_id", userId)
+            .maybeSingle()
+        : Promise.resolve(null),
+    ]);
 
-  if (overviewResult?.error || attendanceResult?.error) {
+  if (
+    overviewResult?.error ||
+    attendanceResult?.error ||
+    academicProgramsResult?.error ||
+    appUserResult?.error
+  ) {
     console.error("[PROFILE] could not read the current profile data.");
     return createErrorResponse(response, 403, "profile_load_failed");
   }
@@ -167,8 +191,16 @@ export async function GET(request: NextRequest) {
   const attendance = attendanceResult
     ? z.array(MONTHLY_ATTENDANCE_SCHEMA).safeParse(attendanceResult.data)
     : null;
+  const academicPrograms = academicProgramsResult
+    ? z.array(ACADEMIC_PROGRAM_SCHEMA).safeParse(academicProgramsResult.data)
+    : null;
 
-  if ((overview !== null && !overview.success) || (attendance !== null && !attendance.success)) {
+  if (
+    (overview !== null && !overview.success) ||
+    (attendance !== null && !attendance.success) ||
+    (academicPrograms !== null && !academicPrograms.success) ||
+    (appUserResult !== null && !appUserResult.data)
+  ) {
     console.error("[PROFILE] profile RPC returned an invalid response.");
     return createErrorResponse(response, 503, "profile_load_failed");
   }
@@ -184,9 +216,21 @@ export async function GET(request: NextRequest) {
             reportedSex: overview.data.reported_sex,
             heightCm: overview.data.height_cm,
             weightKg: overview.data.weight_kg,
+            academicProgramId: overview.data.academic_program_id,
+            academicProgramName: overview.data.academic_program_name,
+            careerEntryYear: overview.data.career_entry_year,
+            bookingProfileComplete: overview.data.booking_profile_complete,
+            bookingProfileMissingFields: overview.data.booking_profile_missing_fields,
+            regulationAccepted: appUserResult?.data?.regulation_accepted_at !== null,
             streakWeeks: overview.data.streak_weeks,
             themePreference: overview.data.theme_preference,
           },
+          academicPrograms: academicPrograms?.success
+            ? academicPrograms.data.map((program) => ({
+                academicProgramId: program.academic_program_id,
+                programName: program.program_name,
+              }))
+            : [],
         }
       : {}),
     ...(attendance?.success

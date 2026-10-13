@@ -46,6 +46,7 @@ const CONFIGURATION_SCHEMA = z.object({
   timeBlocks: z.array(TIME_BLOCK_SCHEMA),
   dateClosures: z.array(
     z.object({
+      closureId: z.string().uuid(),
       date: z.string().date(),
       timeBlockId: z.number().int().positive(),
       reason: z.string().min(3).max(240),
@@ -61,6 +62,7 @@ const CONFIGURATION_SCHEMA = z.object({
   ),
   weeklyClosures: z.array(
     z.object({
+      closureId: z.string().uuid(),
       isoWeekday: z.number().int().min(1).max(7),
       timeBlockId: z.number().int().positive(),
       reason: z.string().min(3).max(240),
@@ -523,23 +525,22 @@ export default function ConfigurationPage() {
   async function removeClosure(closure: Closure) {
     const closureKey =
       closure.scope === "date"
-        ? `date-${closure.date}-${closure.timeBlockId}`
+        ? `date-${closure.closureId}`
         : closure.scope === "period"
           ? `period-${closure.closurePeriodId}`
-          : `weekly-${closure.isoWeekday}-${closure.timeBlockId}`;
+          : `weekly-${closure.closureId}`;
     setRemovingClosureKey(closureKey);
     setErrorMessage(null);
 
     const payload =
       closure.scope === "date"
-        ? { action: "remove", scope: "date", timeBlockId: closure.timeBlockId, date: closure.date }
+        ? { action: "remove", scope: "date", closureId: closure.closureId }
         : closure.scope === "period"
           ? { action: "remove", scope: "period", closurePeriodId: closure.closurePeriodId }
           : {
               action: "remove",
               scope: "weekly",
-              timeBlockId: closure.timeBlockId,
-              isoWeekday: closure.isoWeekday,
+              closureId: closure.closureId,
             };
 
     try {
@@ -699,10 +700,10 @@ export default function ConfigurationPage() {
   }
 
   function getClosureKey(closure: Closure) {
-    if (closure.scope === "date") return `date-${closure.date}-${closure.timeBlockId}`;
+    if (closure.scope === "date") return `date-${closure.closureId}`;
     if (closure.scope === "period") return `period-${closure.closurePeriodId}`;
 
-    return `weekly-${closure.isoWeekday}-${closure.timeBlockId}`;
+    return `weekly-${closure.closureId}`;
   }
 
   async function signOut() {

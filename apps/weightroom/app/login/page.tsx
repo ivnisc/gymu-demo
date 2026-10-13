@@ -105,9 +105,9 @@ export default function LoginPage() {
       if (response.status === 204) {
         clearQueryCache();
         setLoginSucceeded(true);
-        const termsAcceptanceRequired =
-          response.headers.get("X-GUSM-Terms-Acceptance-Required") === "true";
-        router.replace(termsAcceptanceRequired ? "/terminos" : "/reserva");
+        const regulationAcceptanceRequired =
+          response.headers.get("X-GYMU-Regulation-Acceptance-Required") === "true";
+        router.replace(regulationAcceptanceRequired ? "/terminos" : "/reserva");
         return;
       }
 
@@ -180,9 +180,9 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-svh w-full justify-center bg-bg">
-      <main className="relative flex min-h-svh gusm-app-shell flex-col items-center justify-center gap-12 px-8 py-12">
+      <main className="relative flex min-h-svh gusm-app-shell flex-col items-center justify-center gap-12 px-8 pt-[max(3rem,calc(env(safe-area-inset-top)+2rem))] pb-[max(3rem,calc(env(safe-area-inset-bottom)+2rem))]">
         <ThemeToggle
-          className="absolute top-4 right-4"
+          className="absolute top-[max(1rem,calc(env(safe-area-inset-top)+0.5rem))] right-[max(1rem,env(safe-area-inset-right))]"
           onThemePreferenceSelect={setLoginThemePreference}
         />
         <header className="flex flex-col items-center gap-3">

@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
   const serviceRoleClient = CREATE_SUPABASE_SERVICE_ROLE_CLIENT();
   const { data, error } = await serviceRoleClient.rpc("get_check_in_qr_status", {
     p_user_id: userId,
-    p_qr_token_id: requestPayload.data.tokenId,
+    p_check_in_qr_token_id: requestPayload.data.tokenId,
   });
   const statusResult = STATUS_RESULT_SCHEMA.safeParse(data?.at(0));
 

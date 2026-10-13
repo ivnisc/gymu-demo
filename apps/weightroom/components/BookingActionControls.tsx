@@ -26,6 +26,7 @@ type BookingActionControlsProps = {
   actionState: BookingActionState;
   isBookingReplacementPending?: boolean;
   isBookingReplacementRequested?: boolean;
+  isBookingCreationPending?: boolean;
   isCancellationLocked: boolean;
   isConfirmationWindowActive: boolean;
   isTimeBlockPast: boolean;
@@ -43,6 +44,7 @@ export function BookingActionControls({
   actionState,
   isBookingReplacementPending = false,
   isBookingReplacementRequested = false,
+  isBookingCreationPending = false,
   isCancellationLocked,
   isConfirmationWindowActive,
   isTimeBlockPast,
@@ -117,7 +119,7 @@ export function BookingActionControls({
               initial={shouldReduceMotion ? false : { opacity: 0, x: 8 }}
               animate={{ opacity: 1, x: 0 }}
               exit={shouldReduceMotion ? undefined : { opacity: 0, x: -8 }}
-              transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+              transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
               className="flex w-full items-center gap-2"
             >
               <p className="min-w-0 flex-1 text-sm leading-4 text-muted">
@@ -149,17 +151,18 @@ export function BookingActionControls({
               key="create-booking"
               type="button"
               onClick={onCreateBooking}
+              disabled={isBookingCreationPending}
               initial={shouldReduceMotion ? false : { opacity: 0, x: -8 }}
               animate={{ opacity: 1, x: 0 }}
               exit={shouldReduceMotion ? undefined : { opacity: 0, x: 8 }}
-              transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+              transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
               className={clsx(
                 RESERVATION_CONFIRM_BUTTON_CLASS,
                 "border-accent-fill bg-accent-fill font-semibold text-accent-foreground hover:opacity-90 focus-visible:ring-accent",
               )}
             >
               <Plus className="size-4" aria-hidden="true" />
-              Reservar cupo
+              {isBookingCreationPending ? "Reservando…" : "Reservar cupo"}
             </motion.button>
           )}
         </AnimatePresence>

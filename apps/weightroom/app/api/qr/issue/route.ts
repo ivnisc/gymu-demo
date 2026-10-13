@@ -8,12 +8,25 @@ export const runtime = "nodejs";
 
 const TIMESTAMP_SCHEMA = z.string().refine((value) => !Number.isNaN(Date.parse(value)));
 const ISSUE_RESULT_SCHEMA = z.object({
-  state: z.enum(["ready", "arrived_too_late", "no_current_booking", "outside_window"]),
+  state: z.enum([
+    "ready",
+    "arrived_too_late",
+    "no_current_booking",
+    "outside_window",
+    "session_ended",
+  ]),
   qr_token_id: z.string().uuid().nullable(),
   booking_date: z.string().date().nullable(),
   time_block_id: z.number().int().positive().nullable(),
   expires_at: TIMESTAMP_SCHEMA.nullable(),
 });
+
+function isAccessRequirementError(errorMessage: string) {
+  return (
+    errorMessage.includes("regulation acceptance is required") ||
+    errorMessage.includes("required booking profile is incomplete")
+  );
+}
 
 export async function POST(request: NextRequest) {
   const response = new NextResponse();
@@ -35,7 +48,9 @@ export async function POST(request: NextRequest) {
   });
   const issueResult = ISSUE_RESULT_SCHEMA.safeParse(data?.at(0));
 
-  if (error || !issueResult.success) {
+  if (error && isAccessRequirementError(error.message)) {
+    return createResponse(response, 200, { state: "access_incomplete" });
+  } else if (error || !issueResult.success) {
     console.error("[CHECK_IN_QR] could not issue a QR token.");
     return createResponse(response, 403, { code: "qr_unavailable" });
   }
