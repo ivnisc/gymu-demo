@@ -9,6 +9,15 @@ La plataforma está diseñada para usuarios institucionales UTFSM. La integraci�
 con el sistema de autenticación institucional se encuentra en proceso de
 evaluación. La aplicación no almacena contraseñas institucionales.
 
+<br>
+<br>
+
+   
+
+<img width="866" height="853" alt="gymu" src="https://github.com/user-attachments/assets/02814e7e-b694-485f-ab78-55a0068197f8" />
+
+
+
 ### Arquitectura
 
 - Aplicación: Next.js 16 con App Router y TypeScript.
