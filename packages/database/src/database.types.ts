@@ -1551,6 +1551,16 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      create_routine_template_draft: {
+        Args: { p_actor_user_id: string; p_exercises: Json; p_title: string }
+        Returns: Database["private"]["Tables"]["routine_plan"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "routine_plan"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       delete_admin_news_item: {
         Args: { p_actor_user_id: string; p_news_item_id: string }
         Returns: string
@@ -1832,6 +1842,23 @@ export type Database = {
           storage_path: string
         }[]
       }
+      get_routine_editor_plan: {
+        Args: { p_actor_user_id: string; p_routine_plan_id: string }
+        Returns: {
+          assigned_at: string
+          created_by_user_name: string
+          exercises: Json
+          kind: Database["private"]["Enums"]["routine_plan_kind"]
+          recipient_institutional_username: string
+          recipient_user_id: string
+          recipient_user_name: string
+          routine_plan_id: string
+          status: Database["private"]["Enums"]["routine_plan_status"]
+          title: string
+          updated_at: string
+          updated_by_user_name: string
+        }[]
+      }
       has_accepted_regulation: { Args: never; Returns: boolean }
       issue_check_in_qr: {
         Args: { p_token_hash: string; p_user_id: string }
@@ -1841,6 +1868,23 @@ export type Database = {
           expires_at: string
           state: string
           time_block_id: number
+        }[]
+      }
+      list_routine_editor_plans: {
+        Args: { p_actor_user_id: string; p_query?: string }
+        Returns: {
+          assigned_at: string
+          created_by_user_name: string
+          exercise_count: number
+          kind: Database["private"]["Enums"]["routine_plan_kind"]
+          recipient_institutional_username: string
+          recipient_user_id: string
+          recipient_user_name: string
+          routine_plan_id: string
+          status: Database["private"]["Enums"]["routine_plan_status"]
+          title: string
+          updated_at: string
+          updated_by_user_name: string
         }[]
       }
       prune_cron_job_run_details: { Args: never; Returns: number }
