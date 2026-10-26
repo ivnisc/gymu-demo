@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  BadgeCheck,
+  CalendarCheck,
   CheckCircle2,
   CircleAlert,
   Clock3,
@@ -11,12 +13,13 @@ import {
   Search,
   UserPlus,
   Users,
+  UsersRound,
   X,
+  type LucideIcon,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { sileo } from "sileo";
 import { CREATE_SUPABASE_BROWSER_CLIENT } from "@gusm/database/client";
 import { CapacitySlots } from "@/components/CapacitySlots";
 import {
@@ -27,12 +30,13 @@ import { UserTopBar } from "@/components/UserTopBar";
 import { getCurrentUser } from "@/lib/current-user";
 import { clearProfileCache } from "@/lib/profile-cache";
 import { CURRENT_USER_QUERY_KEY } from "@/lib/query-keys";
+import { notifyInfo, notifySuccess, notifyWarning } from "@/lib/toast";
 
 const STANDARD_CAPACITY = 15;
 const OVERCAPACITY_LIMIT = 3;
 
 type AdmissionSource = "self_service" | "staff_exception" | "staff_overcapacity";
-type ParticipantStatus = "confirmed" | "present" | "requested";
+type ParticipantStatus = "confirmed" | "present" | "requested" | "manual_admission";
 type BlockParticipant = InstitutionalUserSearchResult & {
   admissionSource?: AdmissionSource;
   canReauthorizeLateQr?: boolean;
@@ -41,6 +45,13 @@ type BlockParticipant = InstitutionalUserSearchResult & {
   name: string;
   status: ParticipantStatus;
   username: string;
+};
+
+type ParticipantStatusPresentation = {
+  icon: LucideIcon;
+  label: string;
+  surfaceClassName: string;
+  textClassName: string;
 };
 
 const INITIAL_PARTICIPANTS: BlockParticipant[] = [
@@ -69,20 +80,63 @@ const MOCK_SEARCH_RESULTS: BlockParticipant[] = [
   { id: "7", name: "Tomás Vidal", status: "requested", username: "tomas.vidal" },
 ];
 
-function getParticipantStatusLabel(participant: BlockParticipant): string {
-  if (participant.status === "present") return "Asistencia registrada";
-  if (participant.status === "requested") return "Solicitud de ingreso";
-  if (participant.isLateQrAuthorized) return "QR disponible por 5 min";
-  if (participant.admissionSource === "staff_exception") return "Ingreso autorizado";
-  if (participant.admissionSource === "staff_overcapacity") return "Sobrecupo autorizado";
-  return "Reserva confirmada";
-}
-
-function getParticipantStatusTextClass(participant: BlockParticipant): string {
-  if (participant.status === "requested") return "text-amber-400";
-  if (participant.status === "present") return "text-emerald-400";
-  if (participant.isLateQrAuthorized) return "text-accent";
-  return "text-muted";
+function getParticipantStatusPresentation(
+  participant: BlockParticipant,
+): ParticipantStatusPresentation {
+  if (participant.status === "present") {
+    return {
+      icon: CheckCircle2,
+      label: "Asistencia registrada",
+      surfaceClassName: "bg-emerald-400/12 text-emerald-400",
+      textClassName: "text-emerald-400",
+    };
+  }
+  if (participant.status === "requested") {
+    return {
+      icon: CircleAlert,
+      label: "Solicitud de ingreso",
+      surfaceClassName: "bg-amber-400/12 text-amber-400",
+      textClassName: "text-amber-400",
+    };
+  }
+  if (participant.status === "manual_admission") {
+    return {
+      icon: UserPlus,
+      label: "Ingreso presencial",
+      surfaceClassName: "bg-accent/12 text-accent",
+      textClassName: "text-accent",
+    };
+  }
+  if (participant.isLateQrAuthorized) {
+    return {
+      icon: QrCode,
+      label: "QR disponible por 5 min",
+      surfaceClassName: "bg-accent/12 text-accent",
+      textClassName: "text-accent",
+    };
+  }
+  if (participant.admissionSource === "staff_exception") {
+    return {
+      icon: BadgeCheck,
+      label: "Ingreso autorizado",
+      surfaceClassName: "bg-accent/12 text-accent",
+      textClassName: "text-accent",
+    };
+  }
+  if (participant.admissionSource === "staff_overcapacity") {
+    return {
+      icon: UsersRound,
+      label: "Sobrecupo autorizado",
+      surfaceClassName: "bg-rose-500/12 text-rose-400",
+      textClassName: "text-rose-400",
+    };
+  }
+  return {
+    icon: CalendarCheck,
+    label: "Reserva confirmada",
+    surfaceClassName: "bg-ghost text-muted",
+    textClassName: "text-muted",
+  };
 }
 
 function getCountLabel(count: number, singular: string, plural: string): string {
@@ -103,8 +157,11 @@ export default function CurrentBlockPage() {
   const [overcapacityCount, setOvercapacityCount] = useState(0);
   const [authorizationCount, setAuthorizationCount] = useState(0);
   const [openParticipantId, setOpenParticipantId] = useState<string | null>(null);
+  const [statusDetailsParticipantId, setStatusDetailsParticipantId] = useState<string | null>(null);
+  const [newlyAddedParticipantId, setNewlyAddedParticipantId] = useState<string | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const statusDetailsTimeoutRef = useRef<number | null>(null);
 
   const currentUser = currentUserQuery.data;
   const normalizedQuery = query.trim().toLocaleLowerCase("es-CL");
@@ -116,18 +173,42 @@ export default function CurrentBlockPage() {
     return matchesQuery && !isAlreadyListed;
   });
 
+  useEffect(function clearStatusDetailsTimeoutOnUnmount() {
+    return function clearStatusDetailsTimeout() {
+      if (statusDetailsTimeoutRef.current !== null) {
+        window.clearTimeout(statusDetailsTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  function toggleStatusDetails(participantId: string) {
+    if (statusDetailsTimeoutRef.current !== null) {
+      window.clearTimeout(statusDetailsTimeoutRef.current);
+      statusDetailsTimeoutRef.current = null;
+    }
+
+    if (statusDetailsParticipantId === participantId) {
+      setStatusDetailsParticipantId(null);
+      return;
+    }
+
+    setStatusDetailsParticipantId(participantId);
+    statusDetailsTimeoutRef.current = window.setTimeout(() => {
+      setStatusDetailsParticipantId(null);
+      statusDetailsTimeoutRef.current = null;
+    }, 3000);
+  }
+
   function handleParticipantAction(participant: BlockParticipant) {
-    if (participant.status === "requested") {
+    if (participant.status === "requested" || participant.status === "manual_admission") {
       const isStandardAdmission = confirmedCount < STANDARD_CAPACITY;
       const admissionSource: AdmissionSource = isStandardAdmission
         ? "staff_exception"
         : "staff_overcapacity";
 
       if (!isStandardAdmission && overcapacityCount >= OVERCAPACITY_LIMIT) {
-        sileo.warning({
+        notifyWarning("No quedan sobrecupos disponibles", {
           description: "El máximo operativo de sobrecupo ya fue alcanzado para este bloque.",
-          position: "bottom-center",
-          title: "No quedan sobrecupos disponibles",
         });
         return;
       }
@@ -149,11 +230,9 @@ export default function CurrentBlockPage() {
       } else {
         setOvercapacityCount((currentCount) => currentCount + 1);
       }
-      sileo.success({
+      notifySuccess(isStandardAdmission ? "Ingreso autorizado" : "Sobrecupo autorizado", {
         description:
           "La persona puede generar y presentar su QR durante los próximos cinco minutos.",
-        position: "bottom-center",
-        title: isStandardAdmission ? "Ingreso autorizado" : "Sobrecupo autorizado",
       });
     } else if (participant.status === "confirmed") {
       setParticipants((currentParticipants) =>
@@ -164,12 +243,9 @@ export default function CurrentBlockPage() {
         ),
       );
       setAuthorizationCount((currentCount) => currentCount + 1);
-      sileo.info({
+      notifyInfo("QR habilitado temporalmente", {
         description:
           "La reserva conserva su procedencia y su cupo. Solo se habilitó el QR por cinco minutos.",
-        position: "bottom-center",
-        styles: { title: "sileo-qr-temporary-title" },
-        title: "QR habilitado temporalmente",
       });
     }
 
@@ -180,10 +256,15 @@ export default function CurrentBlockPage() {
     const alreadyListed = participants.some((participant) => participant.id === result.id);
     if (alreadyListed) return;
 
-    setParticipants((currentParticipants) => [...currentParticipants, result]);
+    const participant = { ...result, status: "manual_admission" as const };
+    setParticipants((currentParticipants) => [...currentParticipants, participant]);
+    setNewlyAddedParticipantId(participant.id);
     setQuery("");
     setIsSearchOpen(false);
-    setOpenParticipantId(result.id);
+    setOpenParticipantId(participant.id);
+    notifyInfo("Persona añadida", {
+      description: "Autoriza su ingreso desde la lista de participantes.",
+    });
   }
 
   async function signOut() {
@@ -204,10 +285,8 @@ export default function CurrentBlockPage() {
         <header className="z-20 shrink-0 border-b border-divider bg-surface">
           <UserTopBar
             pageTitle="Bloque actual"
-            showActiveBookings={false}
             role={currentUser?.role}
             streakWeeks={currentUser?.streakWeeks}
-            onGoBookings={() => router.push("/reserva")}
             onGoOvercapacity={() => router.push("/bloque")}
             onGoRoutines={() => router.push("/rutinas")}
             onGoSettings={() => router.push("/configuracion")}
@@ -269,25 +348,40 @@ export default function CurrentBlockPage() {
             <div className="divide-y divide-accent/15">
               {participants.map((participant) => {
                 const isActionOpen = openParticipantId === participant.id;
+                const isStatusDetailsOpen = statusDetailsParticipantId === participant.id;
+                const isNewlyAdded = newlyAddedParticipantId === participant.id;
                 const isActionable =
                   participant.status === "requested" ||
+                  participant.status === "manual_admission" ||
                   (participant.status === "confirmed" && participant.canReauthorizeLateQr);
                 const isStandardAdmission = confirmedCount < STANDARD_CAPACITY;
                 const actionLabel =
-                  participant.status === "requested"
+                  participant.status === "requested" || participant.status === "manual_admission"
                     ? isStandardAdmission
                       ? "Autorizar ingreso"
                       : "Autorizar sobrecupo"
                     : "Habilitar QR 5 min";
+                const statusPresentation = getParticipantStatusPresentation(participant);
+                const StatusIcon = statusPresentation.icon;
 
                 return (
                   <motion.article
                     key={participant.id}
                     layout="position"
+                    initial={
+                      shouldReduceMotion || !isNewlyAdded
+                        ? false
+                        : { opacity: 0, transform: "translateY(10px) scale(0.97)" }
+                    }
+                    animate={{ opacity: 1, transform: "translateY(0px) scale(1)" }}
                     transition={
                       shouldReduceMotion
                         ? { duration: 0 }
-                        : { layout: { duration: 0.22, ease: [0.16, 1, 0.3, 1] } }
+                        : {
+                            layout: { duration: 0.22, ease: [0.16, 1, 0.3, 1] },
+                            opacity: { duration: 0.2, ease: [0.23, 1, 0.32, 1] },
+                            transform: { duration: 0.24, ease: [0.23, 1, 0.32, 1] },
+                          }
                     }
                     className="py-3"
                   >
@@ -298,14 +392,49 @@ export default function CurrentBlockPage() {
                         </p>
                         <p className="truncate text-sm text-muted">{participant.username}</p>
                       </div>
-                      <span
-                        className={clsx(
-                          "whitespace-nowrap text-right text-sm leading-5",
-                          getParticipantStatusTextClass(participant),
-                        )}
-                      >
-                        {getParticipantStatusLabel(participant)}
-                      </span>
+                      <div className="flex min-w-0 items-center justify-end gap-1.5">
+                        <AnimatePresence initial={false}>
+                          {isStatusDetailsOpen && (
+                            <motion.span
+                              initial={
+                                shouldReduceMotion
+                                  ? false
+                                  : { opacity: 0, transform: "translateX(8px)" }
+                              }
+                              animate={{ opacity: 1, transform: "translateX(0px)" }}
+                              exit={
+                                shouldReduceMotion
+                                  ? undefined
+                                  : { opacity: 0, transform: "translateX(4px)" }
+                              }
+                              transition={
+                                shouldReduceMotion
+                                  ? { duration: 0 }
+                                  : { duration: 0.24, ease: [0.23, 1, 0.32, 1] }
+                              }
+                              className={clsx(
+                                "shrink-0 whitespace-nowrap text-right text-sm leading-5",
+                                statusPresentation.textClassName,
+                              )}
+                            >
+                              {statusPresentation.label}
+                            </motion.span>
+                          )}
+                        </AnimatePresence>
+                        <button
+                          type="button"
+                          onClick={() => toggleStatusDetails(participant.id)}
+                          aria-expanded={isStatusDetailsOpen}
+                          aria-label={`${statusPresentation.label}. Mostrar detalle del estado`}
+                          className={clsx(
+                            "flex size-7 shrink-0 items-center justify-center rounded-md transition-transform active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none",
+                            statusPresentation.surfaceClassName,
+                          )}
+                          title={statusPresentation.label}
+                        >
+                          <StatusIcon className="size-3.5" aria-hidden="true" />
+                        </button>
+                      </div>
                       {isActionable && (
                         <button
                           type="button"
@@ -342,11 +471,11 @@ export default function CurrentBlockPage() {
                                 }
                           }
                         >
-                          <div className="mt-3 flex items-center gap-2 border-t border-accent/15 pt-3">
+                          <div className="mt-2 flex items-center gap-2 border-t border-accent/15 pt-2">
                             <button
                               type="button"
                               onClick={() => handleParticipantAction(participant)}
-                              className="flex w-full gusm-button-primary items-center justify-center gap-2"
+                              className="flex min-h-9 w-full items-center justify-center gap-2 rounded-lg border border-accent-fill bg-accent-fill px-3 text-base font-semibold text-accent-foreground transition-all hover:opacity-90 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none active:scale-[0.98]"
                             >
                               {participant.status === "confirmed" ? (
                                 <Clock3 className="size-4" aria-hidden="true" />

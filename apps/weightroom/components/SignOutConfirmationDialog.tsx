@@ -16,35 +16,32 @@ export function SignOutConfirmationDialog({ onCancel, onConfirm }: SignOutConfir
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-medium tracking-widest text-accent">SESIÓN</p>
+            <p className="text-sm font-medium tracking-widest text-accent">Cerrar Sesión</p>
             <h2 id="sign-out-title" className="mt-2 text-xl font-semibold text-foreground">
-              ¿Quieres cerrar sesión?
+              ¿Estás seguro?
             </h2>
           </div>
           <button
             type="button"
             onClick={onCancel}
-            aria-label="Cancelar cierre de sesión"
+            aria-label="Volver"
             className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:bg-input hover:text-foreground active:scale-95"
           >
             <X className="size-4" aria-hidden="true" />
           </button>
         </div>
-        <p className="mt-3 text-sm leading-6 text-muted">
-          Tendrás que volver a ingresar con tus credenciales institucionales.
-        </p>
         <div className="mt-5 flex gap-3">
           <button
             type="button"
             onClick={onCancel}
-            className="flex flex-1 items-center justify-center rounded-xl border border-divider bg-input px-3 py-2.5 text-base text-foreground active:scale-[0.98]"
+            className="flex flex-1 items-center justify-center rounded-xl bg-accent-fill px-3 py-2.5 text-base font-semibold text-accent-foreground shadow-sm transition-opacity hover:opacity-90 active:scale-[0.98]"
           >
-            Cancelar
+            Volver
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-red-500/35 bg-red-500/10 px-3 py-2.5 text-base text-red-500 active:scale-[0.98]"
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-capacity-segment-red px-3 py-2.5 text-base font-semibold text-white shadow-sm transition-opacity hover:opacity-90 active:scale-[0.98]"
           >
             <LogOut className="size-4" aria-hidden="true" />
             Cerrar sesión

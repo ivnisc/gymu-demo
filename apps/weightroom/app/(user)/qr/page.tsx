@@ -243,9 +243,7 @@ export default function CheckInQrPage() {
         <header className="z-20 shrink-0 border-b border-divider bg-surface">
           <UserTopBar
             pageTitle="Asistencia"
-            showActiveBookings={false}
             role={currentUser?.role}
-            onGoBookings={() => router.push("/reserva")}
             onGoOvercapacity={() => router.push("/bloque")}
             onGoRoutines={() => router.push("/rutinas")}
             onGoSettings={() => router.push("/configuracion")}

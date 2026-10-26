@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import { ArrowLeft, ChevronDown, Plus, Search, SlidersHorizontal } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import clsx from "clsx";
-import { sileo } from "sileo";
 import {
   InstitutionalUserSearch,
   type InstitutionalUserSearchResult,
@@ -18,6 +17,7 @@ import {
 } from "@/lib/routines/catalog";
 import { type RoutineDraftField } from "@/lib/routines/validation";
 import type { RoutineCatalogExercise, RoutineDraftItem } from "@/lib/routines/types";
+import { notifyInfo, notifySuccess } from "@/lib/toast";
 
 type RoutineTemplateKey = "arms" | "back" | "core" | "front_torso" | "lower_body" | "upper_body";
 
@@ -178,10 +178,8 @@ export function RoutineEditor() {
     const item = createDraftItem(exercise, draftItems.length);
     setDraftItems((items) => [...items, item]);
     setExpandedItemIds((itemIds) => new Set([...itemIds, item.id]));
-    sileo.success({
+    notifySuccess("Ejercicio agregado", {
       description: `${exercise.name} se añadió a la rutina.`,
-      position: "bottom-center",
-      title: "Ejercicio agregado",
     });
   }
 
@@ -196,20 +194,16 @@ export function RoutineEditor() {
   }
 
   function handleDraftAction() {
-    sileo.info({
+    notifyInfo("Borrador preparado", {
       description: "El guardado se conectará cuando exista el modelo persistente de rutinas.",
-      position: "bottom-center",
-      title: "Borrador preparado",
     });
   }
 
   function handleSendAction() {
     if (!selectedRecipient) return;
 
-    sileo.info({
+    notifyInfo("Envío preparado", {
       description: `La asignación a ${selectedRecipient.name} se habilitará con la persistencia.`,
-      position: "bottom-center",
-      title: "Envío preparado",
     });
   }
 

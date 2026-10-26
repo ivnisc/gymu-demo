@@ -1,7 +1,6 @@
 import useEmblaCarousel from "embla-carousel-react";
 import { useEffect, useRef } from "react";
 import clsx from "clsx";
-import type { ActiveBooking } from "@/components/ActiveBookingsPanel";
 import { type AppRole, UserTopBar } from "@/components/UserTopBar";
 
 const DAY_LETTERS = ["L", "M", "X", "J", "V"];
@@ -101,17 +100,11 @@ type UserCalendarBannerProps = {
   weekOffset: number;
   onSelectDay: (index: number) => void;
   onWeekChange: (offset: number) => void;
-  onGoBookings?: () => void;
   onGoOvercapacity?: () => void;
   onGoRoutines?: () => void;
   onGoSettings?: () => void;
   onSignOut: () => void | Promise<void>;
-  activeBookings: ActiveBooking[];
-  onConfirmBooking: (bookingKey: string) => void;
-  onCancelBooking: (bookingKey: string) => void;
-  showActiveBookings?: boolean;
   showUserName?: boolean;
-  showBookingsInMenu?: boolean;
   weekSelector?: React.ReactNode;
 };
 
@@ -132,17 +125,11 @@ export function UserCalendarBanner({
   weekOffset,
   onSelectDay,
   onWeekChange,
-  onGoBookings,
   onGoOvercapacity,
   onGoRoutines,
   onGoSettings,
   onSignOut,
-  activeBookings,
-  onConfirmBooking,
-  onCancelBooking,
-  showActiveBookings,
   showUserName,
-  showBookingsInMenu,
   weekSelector,
 }: UserCalendarBannerProps) {
   const today = getSantiagoToday();
@@ -182,17 +169,11 @@ export function UserCalendarBanner({
         userName={userName}
         role={role}
         streakWeeks={streakWeeks}
-        onGoBookings={onGoBookings}
         onGoOvercapacity={onGoOvercapacity}
         onGoRoutines={onGoRoutines}
         onGoSettings={onGoSettings}
         onSignOut={onSignOut}
-        activeBookings={activeBookings}
-        onConfirmBooking={onConfirmBooking}
-        onCancelBooking={onCancelBooking}
-        showActiveBookings={showActiveBookings}
         showUserName={showUserName}
-        showBookingsInMenu={showBookingsInMenu}
       />
 
       {weekSelector}

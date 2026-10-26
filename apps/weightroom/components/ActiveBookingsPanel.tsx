@@ -2,15 +2,9 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { CalendarCheck, CheckCheck, X } from "lucide-react";
 import clsx from "clsx";
+import type { ActiveBooking } from "@/lib/booking/active-bookings";
 
-export type ActiveBooking = {
-  bookingKey: string;
-  date: Date;
-  timeRange: string;
-  status: "reserved" | "confirmed";
-  isConfirmationAvailable: boolean;
-  isCancellationLocked: boolean;
-};
+export type { ActiveBooking } from "@/lib/booking/active-bookings";
 
 type ActiveBookingsPanelProps = {
   bookings: ActiveBooking[];

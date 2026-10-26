@@ -12,6 +12,7 @@ type BookingCardProps = {
   detail: string;
   detailTone?: "default" | "danger" | "warning";
   isDisabled?: boolean;
+  isLoadingSkeleton?: boolean;
   isSelected?: boolean;
   onSelect?: () => void;
   title: string;
@@ -35,6 +36,7 @@ export function BookingCard({
   detail,
   detailTone = "default",
   isDisabled = false,
+  isLoadingSkeleton = false,
   isSelected = false,
   onSelect,
   title,
@@ -43,7 +45,9 @@ export function BookingCard({
   taken,
 }: BookingCardProps) {
   const shouldReduceMotion = useReducedMotion();
-  const details = (
+  const details = isLoadingSkeleton ? (
+    <div aria-hidden="true" className="h-[46px]" />
+  ) : (
     <div className="min-w-0">
       <div className="flex min-w-0 items-baseline gap-2">
         <p className="truncate text-base font-semibold text-foreground">{title}</p>
@@ -73,13 +77,15 @@ export function BookingCard({
         <div className="mb-[3px] min-w-0 flex-1">
           <CapacitySlots isDisabled={isDisabled} occupied={taken} total={totalSpots} />
         </div>
-        <span
-          className="flex w-15 shrink-0 items-center justify-end text-sm text-accent tabular-nums"
-          aria-label={`${taken} de ${totalSpots} cupos ocupados`}
-        >
-          <Users className="mr-1 size-3.5 shrink-0" aria-hidden="true" />
-          {taken}/{totalSpots}
-        </span>
+        {!isLoadingSkeleton && (
+          <span
+            className="flex w-15 shrink-0 items-center justify-end text-sm text-accent tabular-nums"
+            aria-label={`${taken} de ${totalSpots} cupos ocupados`}
+          >
+            <Users className="mr-1 size-3.5 shrink-0" aria-hidden="true" />
+            {taken}/{totalSpots}
+          </span>
+        )}
       </div>
     </>
   );
@@ -88,6 +94,7 @@ export function BookingCard({
     <motion.article
       layout="position"
       animate={{ height: actions ? "9.75rem" : "5.75rem" }}
+      aria-hidden={isLoadingSkeleton || undefined}
       className={clsx(
         "w-full shrink-0 overflow-hidden rounded-xl border px-3.5 py-3",
         isDisabled && "opacity-40 grayscale",

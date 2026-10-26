@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   BarChart3,
@@ -20,10 +20,21 @@ import {
 } from "lucide-react";
 import clsx from "clsx";
 import { motion, useReducedMotion } from "motion/react";
-import { ActiveBookingsPanel, type ActiveBooking } from "@/components/ActiveBookingsPanel";
+import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { CREATE_SUPABASE_BROWSER_CLIENT } from "@gusm/database/client";
+import { ActiveBookingsPanel } from "@/components/ActiveBookingsPanel";
 import { SignOutConfirmationDialog } from "@/components/SignOutConfirmationDialog";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import landingStyles from "@/app/landing.module.css";
+import {
+  bookingWeekAvailabilityQueryKey,
+  getBookingWeekAvailability,
+} from "@/lib/booking/availability";
+import { createActiveBookings, getActiveBookingWeekStarts } from "@/lib/booking/active-bookings";
+import { getCurrentUser } from "@/lib/current-user";
+import { CURRENT_USER_QUERY_KEY } from "@/lib/query-keys";
 import type { ThemePreference } from "@/lib/theme";
+import { notifyError } from "@/lib/toast";
 
 const SPANISH_PLURAL_RULES = new Intl.PluralRules("es-CL");
 const STREAK_GLOW_DURATION_MILLISECONDS = 1500;
@@ -58,24 +69,19 @@ const DESKTOP_NAVIGATION_ITEMS: DesktopNavigationItem[] = [
 type UserTopBarProps = {
   accountLabel?: string;
   pageTitle?: string;
-  showActiveBookings?: boolean;
   userName?: string;
   role?: AppRole;
   streakWeeks?: number;
   onGoProfile?: () => void;
   onGoCheckIn?: () => void;
-  onGoBookings?: () => void;
   onGoOvercapacity?: () => void;
   onGoInformation?: () => void;
   onGoRoutines?: () => void;
   onGoSettings?: () => void;
   onSignOut?: () => void | Promise<void>;
-  activeBookings?: ActiveBooking[];
-  onConfirmBooking?: (bookingKey: string) => void;
-  onCancelBooking?: (bookingKey: string) => void;
   onThemePreferenceChange?: (themePreference: ThemePreference) => Promise<boolean>;
+  themeTransitionStyle?: "diagonal" | "fade";
   showUserName?: boolean;
-  showBookingsInMenu?: boolean;
 };
 
 function isAtLeastStaff(role: AppRole): boolean {
@@ -102,33 +108,52 @@ function getStoredStreakWeeks(storageKey: string): number {
 export function UserTopBar({
   accountLabel,
   pageTitle,
-  showActiveBookings = true,
   userName,
   role,
   streakWeeks,
   onGoProfile,
   onGoCheckIn,
-  onGoBookings,
   onGoOvercapacity,
   onGoInformation,
   onGoRoutines,
   onGoSettings,
   onSignOut,
-  activeBookings = [],
-  onConfirmBooking,
-  onCancelBooking,
   onThemePreferenceChange,
+  themeTransitionStyle,
   showUserName = true,
-  showBookingsInMenu = false,
 }: UserTopBarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [activePopover, setActivePopover] = useState<ActivePopover>(null);
   const [isSignOutConfirmationOpen, setIsSignOutConfirmationOpen] = useState(false);
   const [isStreakCelebrating, setIsStreakCelebrating] = useState(false);
   const topBarRef = useRef<HTMLDivElement>(null);
-  const previousStreakWeeksRef = useRef(streakWeeks);
   const shouldReduceMotion = useReducedMotion();
+  const currentUserQuery = useQuery({
+    queryKey: CURRENT_USER_QUERY_KEY,
+    queryFn: getCurrentUser,
+    staleTime: 60_000,
+  });
+  const currentUser = currentUserQuery.data;
+  const topBarRole = role ?? currentUser?.role;
+  const topBarUserName = userName ?? currentUser?.userName;
+  const topBarStreakWeeks = streakWeeks ?? currentUser?.streakWeeks;
+  const previousStreakWeeksRef = useRef(topBarStreakWeeks);
+  const [currentWeekStart, followingWeekStart] = getActiveBookingWeekStarts();
+  const activeBookingQueries = useQueries({
+    queries: [currentWeekStart, followingWeekStart].map((weekStart) => ({
+      queryKey: bookingWeekAvailabilityQueryKey(weekStart),
+      queryFn: () => getBookingWeekAvailability(weekStart),
+      staleTime: 60_000,
+      gcTime: 10 * 60_000,
+      enabled: topBarRole !== undefined,
+    })),
+  });
+  const activeBookings = useMemo(
+    () => createActiveBookings(activeBookingQueries.flatMap((query) => query.data ?? [])),
+    [activeBookingQueries],
+  );
 
   const closePopover = useCallback(() => {
     setActivePopover(null);
@@ -155,16 +180,16 @@ export function UserTopBar({
 
   useEffect(() => {
     const previousStreakWeeks = previousStreakWeeksRef.current;
-    previousStreakWeeksRef.current = streakWeeks;
+    previousStreakWeeksRef.current = topBarStreakWeeks;
 
-    if (streakWeeks === undefined || !userName) return;
+    if (topBarStreakWeeks === undefined || !topBarUserName) return;
 
-    const storageKey = getStreakSeenStorageKey(userName);
+    const storageKey = getStreakSeenStorageKey(topBarUserName);
     const storedStreakWeeks = getStoredStreakWeeks(storageKey);
     const previousKnownStreakWeeks = previousStreakWeeks ?? storedStreakWeeks;
-    window.localStorage.setItem(storageKey, String(streakWeeks));
+    window.localStorage.setItem(storageKey, String(topBarStreakWeeks));
 
-    if (streakWeeks <= previousKnownStreakWeeks) return;
+    if (topBarStreakWeeks <= previousKnownStreakWeeks) return;
 
     setIsStreakCelebrating(true);
     const timeout = window.setTimeout(() => {
@@ -172,7 +197,7 @@ export function UserTopBar({
     }, STREAK_GLOW_DURATION_MILLISECONDS);
 
     return () => window.clearTimeout(timeout);
-  }, [streakWeeks, userName]);
+  }, [topBarStreakWeeks, topBarUserName]);
 
   function togglePopover(event: React.MouseEvent<HTMLButtonElement>, popover: ActivePopover) {
     event.stopPropagation();
@@ -195,33 +220,50 @@ export function UserTopBar({
     if (onSignOut) void onSignOut();
   }
 
+  async function confirmActiveBooking(bookingKey: string) {
+    const supabase = CREATE_SUPABASE_BROWSER_CLIENT();
+    const { error } = await supabase.rpc("confirm_booking", { p_booking_id: bookingKey });
+
+    if (error) {
+      notifyError("No fue posible confirmar la reserva", {
+        description:
+          "Su estado pudo haber cambiado. Actualiza la disponibilidad e inténtalo otra vez.",
+        zone: "top",
+      });
+      return;
+    }
+
+    await queryClient.invalidateQueries({ queryKey: ["booking-week-availability"] });
+  }
+
+  async function cancelActiveBooking(bookingKey: string) {
+    const supabase = CREATE_SUPABASE_BROWSER_CLIENT();
+    const { error } = await supabase.rpc("cancel_booking", { p_booking_id: bookingKey });
+
+    if (error) {
+      notifyError("No fue posible cancelar la reserva", {
+        description:
+          "Su estado pudo haber cambiado. Actualiza la disponibilidad e inténtalo otra vez.",
+        zone: "top",
+      });
+      return;
+    }
+
+    await queryClient.invalidateQueries({ queryKey: ["booking-week-availability"] });
+  }
+
   const streakLabel =
-    streakWeeks === undefined
+    topBarStreakWeeks === undefined
       ? null
-      : SPANISH_PLURAL_RULES.select(streakWeeks) === "one"
+      : SPANISH_PLURAL_RULES.select(topBarStreakWeeks) === "one"
         ? "semana entrenando"
         : "semanas entrenando";
 
   const avatarMenu: AvatarMenuItem[] = [];
-  const hasManagementMenu = role !== undefined && isAtLeastStaff(role);
-  const showDirectSignOut = usesDirectAccountActions(role) && onSignOut !== undefined;
+  const hasManagementMenu = topBarRole !== undefined && isAtLeastStaff(topBarRole);
+  const showDirectSignOut = usesDirectAccountActions(topBarRole) && onSignOut !== undefined;
 
   if (hasManagementMenu) {
-    if (showBookingsInMenu) {
-      avatarMenu.push({
-        href: "/reserva",
-        label: "Mis reservas",
-        icon: CalendarCheck,
-        onClick: () => setActivePopover("bookings"),
-      });
-    } else if (onGoBookings) {
-      avatarMenu.push({
-        href: "/reserva",
-        label: "Mis reservas",
-        icon: CalendarCheck,
-        onClick: onGoBookings,
-      });
-    }
     if (onGoOvercapacity) {
       avatarMenu.push({
         href: "/bloque",
@@ -238,7 +280,7 @@ export function UserTopBar({
         onClick: onGoRoutines,
       });
     }
-    if (role && isAdmin(role) && onGoSettings) {
+    if (topBarRole && isAdmin(topBarRole) && onGoSettings) {
       avatarMenu.push({
         href: "/configuracion",
         label: "Configuración",
@@ -274,9 +316,11 @@ export function UserTopBar({
     }
   }
 
-  const showsDesktopNavigation = role !== undefined;
+  const showsDesktopNavigation = topBarRole !== undefined;
   const hasMenu = avatarMenu.length > 0 || showsDesktopNavigation;
-  const hasStreak = streakWeeks !== undefined && streakLabel !== null;
+  const hasStreak = topBarStreakWeeks !== undefined && streakLabel !== null;
+  const desktopMenuItems = avatarMenu.filter((menuItem) => menuItem.variant !== "destructive");
+  const desktopSignOutItem = avatarMenu.find((menuItem) => menuItem.variant === "destructive");
 
   return (
     <div
@@ -319,6 +363,7 @@ export function UserTopBar({
                       onClick={() => handleMenuItemClick(menuItem)}
                       className={clsx(
                         "flex items-center gap-2 rounded-lg px-3 py-2 text-left text-base transition-colors",
+                        showsDesktopNavigation && "lg:hidden",
                         isDestructive
                           ? "text-red-500 hover:bg-red-500/10"
                           : isCurrentRoute
@@ -332,14 +377,14 @@ export function UserTopBar({
                   );
                 })}
 
-                {showsDesktopNavigation && role && (
-                  <>
-                    <div className="mx-3 hidden border-t border-divider pt-2 lg:block">
+                {showsDesktopNavigation && topBarRole && (
+                  <div className="hidden flex-col lg:flex">
+                    <div className="mx-3 border-b border-divider py-2">
                       <span className="text-xs font-medium tracking-[0.12em] text-dim">
-                        @{role}
+                        @{topBarRole}
                       </span>
                     </div>
-                    <div className="hidden flex-col pt-1 lg:flex">
+                    <div className="flex flex-col py-1">
                       {DESKTOP_NAVIGATION_ITEMS.map((menuItem) => {
                         const Icon = menuItem.icon;
                         const isCurrentRoute = menuItem.href === pathname;
@@ -365,42 +410,65 @@ export function UserTopBar({
                         );
                       })}
                     </div>
-                  </>
-                )}
+                    {desktopMenuItems.length > 0 && (
+                      <div className="flex flex-col border-t border-divider py-1">
+                        {desktopMenuItems.map((menuItem) => {
+                          const Icon = menuItem.icon;
+                          const isCurrentRoute = menuItem.href === pathname;
 
-                {showDirectSignOut && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      closePopover();
-                      setIsSignOutConfirmationOpen(true);
-                    }}
-                    className="hidden items-center gap-2 rounded-lg px-3 py-2 text-left text-base text-red-500 transition-colors hover:bg-red-500/10 lg:flex"
-                  >
-                    <LogOut className="size-4" aria-hidden="true" />
-                    Cerrar sesión
-                  </button>
+                          return (
+                            <button
+                              key={menuItem.label}
+                              type="button"
+                              onClick={() => handleMenuItemClick(menuItem)}
+                              className={clsx(
+                                "flex items-center gap-2 rounded-lg px-3 py-2 text-left text-base transition-colors",
+                                isCurrentRoute
+                                  ? "bg-accent/12 text-accent"
+                                  : "text-foreground-muted hover:bg-accent/10 hover:text-accent",
+                              )}
+                            >
+                              <Icon className="size-4" aria-hidden="true" />
+                              {menuItem.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {(desktopSignOutItem || showDirectSignOut) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          closePopover();
+                          setIsSignOutConfirmationOpen(true);
+                        }}
+                        className="flex items-center gap-2 border-t border-divider px-3 py-3 text-left text-base text-red-500 transition-colors hover:bg-red-500/10"
+                      >
+                        <LogOut className="size-4" aria-hidden="true" />
+                        Cerrar sesión
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             )}
           </div>
         )}
 
-        <Dumbbell className="size-5 shrink-0" aria-hidden="true" />
-        <span className="truncate text-sm font-semibold tracking-[0.14em]">GYMU</span>
+        <span className={landingStyles.topbarWordmark}>GYMU</span>
         {pageTitle && <span className="truncate text-sm font-medium text-muted">{pageTitle}</span>}
       </div>
 
       <div className="flex min-w-0 shrink items-center gap-2">
-        {showUserName && userName && (
+        {showUserName && topBarUserName && (
           <span className="hidden max-w-48 min-w-0 truncate text-sm text-muted sm:block">
-            {userName}
+            {topBarUserName}
           </span>
         )}
 
         {accountLabel && <span className="text-sm text-muted">{accountLabel}</span>}
 
-        {showActiveBookings && (
+        {topBarRole !== undefined && (
           <button
             type="button"
             onClick={(event) => togglePopover(event, "bookings")}
@@ -412,7 +480,7 @@ export function UserTopBar({
           </button>
         )}
 
-        {showActiveBookings && hasStreak && <span className="h-5 w-px shrink-0 bg-divider" />}
+        {topBarRole !== undefined && hasStreak && <span className="h-5 w-px shrink-0 bg-divider" />}
 
         {hasStreak && (
           <div className="relative shrink-0">
@@ -443,7 +511,7 @@ export function UserTopBar({
                   <Flame className="size-4" />
                 </motion.span>
               </span>
-              <span className="tabular-nums">{streakWeeks}</span>
+              <span className="tabular-nums">{topBarStreakWeeks}</span>
               {isStreakCelebrating && (
                 <span className="sr-only" aria-live="polite">
                   Nueva semana de racha conseguida
@@ -462,7 +530,9 @@ export function UserTopBar({
                 <Flame className="size-4 shrink-0 text-accent" aria-hidden="true" />
                 <span className="text-sm text-foreground-muted">
                   Llevas{" "}
-                  <span className="font-semibold text-accent tabular-nums">{streakWeeks}</span>{" "}
+                  <span className="font-semibold text-accent tabular-nums">
+                    {topBarStreakWeeks}
+                  </span>{" "}
                   {streakLabel}
                 </span>
               </div>
@@ -471,7 +541,10 @@ export function UserTopBar({
         )}
 
         {onThemePreferenceChange && (
-          <ThemeToggle onThemePreferenceChange={onThemePreferenceChange} />
+          <ThemeToggle
+            onThemePreferenceChange={onThemePreferenceChange}
+            transitionStyle={themeTransitionStyle}
+          />
         )}
 
         {showDirectSignOut && (
@@ -486,12 +559,12 @@ export function UserTopBar({
         )}
       </div>
 
-      {activePopover === "bookings" && onConfirmBooking && onCancelBooking && (
+      {activePopover === "bookings" && (
         <ActiveBookingsPanel
           bookings={activeBookings}
           onClose={closePopover}
-          onConfirm={onConfirmBooking}
-          onCancel={onCancelBooking}
+          onConfirm={confirmActiveBooking}
+          onCancel={cancelActiveBooking}
         />
       )}
 

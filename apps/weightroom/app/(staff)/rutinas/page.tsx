@@ -41,11 +41,9 @@ export default function RoutinesPage() {
           <header className="z-20 shrink-0 border-b border-divider bg-surface">
             <UserTopBar
               pageTitle="Rutinas"
-              showActiveBookings={false}
               showUserName={false}
               role={currentUser.role}
               streakWeeks={currentUser.streakWeeks}
-              onGoBookings={() => router.push("/reserva")}
               onGoOvercapacity={() => router.push("/bloque")}
               onGoRoutines={() => router.push("/rutinas")}
               onGoSettings={() => router.push("/configuracion")}
@@ -72,11 +70,9 @@ export default function RoutinesPage() {
         <header className="z-20 shrink-0 border-b border-divider bg-surface">
           <UserTopBar
             pageTitle="Rutinas"
-            showActiveBookings={false}
             showUserName={false}
             role={currentUser?.role}
             streakWeeks={currentUser?.streakWeeks}
-            onGoBookings={() => router.push("/reserva")}
             onGoOvercapacity={() => router.push("/bloque")}
             onGoRoutines={() => router.push("/rutinas")}
             onGoSettings={() => router.push("/configuracion")}

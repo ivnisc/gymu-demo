@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion, useDragControls, useReducedMotion } from "motion/react";
-import { sileo } from "sileo";
 import * as z from "zod/v4";
 import { BadgeAlert } from "lucide-react";
 import { CREATE_SUPABASE_BROWSER_CLIENT } from "@gusm/database/client";
@@ -23,9 +22,8 @@ import {
 } from "@/components/UserCalendarBanner";
 import type { StaffWeekBookingDay } from "@/components/StaffWeekBookingList";
 import { type AppRole, UserTopBar } from "@/components/UserTopBar";
-import type { ActiveBooking } from "@/components/ActiveBookingsPanel";
 import { BlockCard, type UserBlock, type UserBookingStatus } from "@/components/BlockCard";
-import { ReservationSuccessOverlay } from "@/components/ReservationSuccessOverlay";
+import { BookingCard } from "@/components/BookingCard";
 import { STAFF_BOOKING_LAYOUT_PREVIEW_ENABLED } from "@/lib/booking/presentation-preview";
 import {
   bookingAvailabilityTopic,
@@ -37,25 +35,67 @@ import { getCurrentUser } from "@/lib/current-user";
 import { clearProfileCache } from "@/lib/profile-cache";
 import { CURRENT_USER_QUERY_KEY } from "@/lib/query-keys";
 import { applyThemePreference } from "@/lib/theme";
+import { notifyError, notifyInfo, notifySuccess } from "@/lib/toast";
+
+const SKELETON_TOTAL_SPOTS = 15;
+
+function ReservationBlockSkeletons({ count }: { count: number }) {
+  return (
+    <div className="flex w-full flex-col gap-0 md:gap-2" aria-hidden="true">
+      {Array.from({ length: count }, (_, index) => (
+        <Fragment key={index}>
+          <BookingCard
+            actionState="unavailable"
+            detail=""
+            isLoadingSkeleton
+            title=""
+            totalSpots={SKELETON_TOTAL_SPOTS}
+            taken={0}
+          />
+          {index < count - 1 && <div className="h-2 touch-pan-y md:hidden" />}
+        </Fragment>
+      ))}
+    </div>
+  );
+}
 
 const StaffWeekBookingList = dynamic(
   () => import("@/components/StaffWeekBookingList").then((module) => module.StaffWeekBookingList),
   {
     loading: function StaffWeekBookingListLoading() {
       return (
-        <div className="flex flex-1 flex-col gap-2 px-4 py-3" aria-hidden="true">
-          {Array.from({ length: 5 }, (_, index) => (
-            <div
-              key={index}
-              className="gusm-control-height rounded-xl border border-divider bg-input"
-            />
-          ))}
+        <div className="flex min-h-0 flex-1 overflow-y-auto px-4 pt-3 pb-[calc(5.5rem+env(safe-area-inset-bottom))]">
+          <ReservationBlockSkeletons count={5} />
         </div>
       );
     },
     ssr: false,
   },
 );
+
+function ReservationLoadingSkeleton() {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col" aria-busy="true" aria-label="Cargando reserva">
+      <div className="border-b border-divider px-4 pt-4 pb-3">
+        <div className="flex items-center justify-between">
+          <div className="h-6 w-24 animate-pulse rounded-md bg-input" />
+          <div className="size-9 animate-pulse rounded-full bg-input" />
+        </div>
+        <div className="mt-5 grid grid-cols-5 gap-3">
+          {Array.from({ length: 5 }, (_, index) => (
+            <div key={index} className="flex flex-col items-center gap-2">
+              <div className="h-3 w-5 animate-pulse rounded bg-input" />
+              <div className="size-9 animate-pulse rounded-full bg-input" />
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="flex min-h-0 flex-1 overflow-hidden px-4 pt-3 pb-[calc(5.5rem+env(safe-area-inset-bottom))]">
+        <ReservationBlockSkeletons count={6} />
+      </div>
+    </div>
+  );
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MOCK DATA
@@ -134,7 +174,7 @@ const BLOCK_GRID_MOTION_VARIANTS = {
 };
 
 function getReservationAccountLabel(role: AppRole | undefined): string | undefined {
-  if (role === "u_staff" || role === "gym_staff") return "Profesor";
+  if (role === "gym_staff") return "Profesor";
   if (role === "admin") return "Admin";
   return undefined;
 }
@@ -155,6 +195,10 @@ function isBookingEligibilityError(errorMessage: string): boolean {
     errorMessage.includes("regulation acceptance is required") ||
     errorMessage.includes("required booking profile is incomplete")
   );
+}
+
+function isGymStaffBookingRestrictionError(errorMessage: string): boolean {
+  return errorMessage.includes("gym staff can only reserve time block 7");
 }
 
 function isFutureCapacityRace(bookingDate: Date, errorMessage: string): boolean {
@@ -293,7 +337,6 @@ export default function BookingPage() {
   const [dayIdx, setDayIdx] = useState(defaultCalendarSelection.dayIndex);
   const [weekOffset, setWeekOffset] = useState(defaultCalendarSelection.weekOffset);
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [reservationSuccessTitle, setReservationSuccessTitle] = useState<string | null>(null);
   const [isBookingReplacementRequested, setIsBookingReplacementRequested] = useState(false);
   const [isBookingReplacementPending, setIsBookingReplacementPending] = useState(false);
   const [isBookingCreationPending, setIsBookingCreationPending] = useState(false);
@@ -301,13 +344,12 @@ export default function BookingPage() {
   const [closures, setClosures] = useState<BookingClosure[]>([]);
   const [closureNotice, setClosureNotice] = useState<string | null>(null);
   const [isEligibilityNoticeOpen, setIsEligibilityNoticeOpen] = useState(false);
+  const [isGymStaffBookingRestrictionOpen, setIsGymStaffBookingRestrictionOpen] = useState(false);
   const [isAccessPreview, setIsAccessPreview] = useState(false);
   const blockSwipeControls = useDragControls();
   const shouldReduceMotion = useReducedMotion();
   const blockGridTransitionDirection = useRef<BlockGridTransitionDirection>(1);
   const bookingCreationLockRef = useRef(false);
-  const isReservationSuccessVisibleRef = useRef(false);
-  const pendingBookingWeekRefreshRef = useRef<Date | null>(null);
 
   const selectedDate = getWeekDates(weekOffset)[dayIdx]!;
   const queryClient = useQueryClient();
@@ -320,8 +362,6 @@ export default function BookingPage() {
   const isStudentUser = currentUser?.role === "student";
   const isStaffBookingView =
     currentUser?.role === "u_staff" || STAFF_BOOKING_LAYOUT_PREVIEW_ENABLED;
-  const usesDirectActiveBookings =
-    currentUser?.role === "student" || currentUser?.role === "u_staff";
 
   useEffect(() => {
     setIsAccessPreview(new URLSearchParams(window.location.search).get("demo") === "access");
@@ -478,32 +518,6 @@ export default function BookingPage() {
     });
   }, [bookingAvailabilityByCell, bookingEntries, closures, weekOffset]);
 
-  const activeBookings = useMemo<ActiveBooking[]>(() => {
-    const result: ActiveBooking[] = [];
-    const today = getSantiagoToday();
-
-    for (const entry of bookingEntries) {
-      if (entry.isOvercapacity || entry.bookingDate < today) continue;
-      const block = BASE_BLOCKS.find((candidate) => candidate.id === entry.blockId);
-      if (!block) continue;
-
-      result.push({
-        bookingKey: entry.bookingId,
-        date: entry.bookingDate,
-        timeRange: block.timeRange,
-        status: entry.status,
-        isConfirmationAvailable:
-          entry.status === "reserved" &&
-          isConfirmationWindowActive(entry.bookingDate, block.startTime),
-        isCancellationLocked:
-          entry.status === "confirmed" &&
-          isConfirmedBookingCancellationLocked(entry.bookingDate, block.startTime),
-      });
-    }
-
-    return result.sort((left, right) => left.date.getTime() - right.date.getTime()).slice(0, 8);
-  }, [bookingEntries]);
-
   useEffect(() => {
     if (!currentUser) return;
     applyThemePreference(currentUser.themePreference);
@@ -552,7 +566,9 @@ export default function BookingPage() {
       ? [BASE_BLOCKS[6]!]
       : isStudentUser
         ? BASE_BLOCKS.filter((block) => block.id !== 7)
-        : [];
+        : currentUser?.role === "gym_staff" || currentUser?.role === "admin"
+          ? BASE_BLOCKS
+          : [];
     if (realtimeBlocks.length === 0) return;
 
     const supabase = CREATE_SUPABASE_BROWSER_CLIENT();
@@ -571,8 +587,6 @@ export default function BookingPage() {
             config: { private: true },
           })
           .on("broadcast", { event: "invalidate" }, () => {
-            if (isReservationSuccessVisibleRef.current) return;
-
             void queryClient.invalidateQueries({
               queryKey: bookingWeekAvailabilityQueryKey(getWeekStartDateKey(selectedDate)),
             });
@@ -591,7 +605,15 @@ export default function BookingPage() {
         void supabase.removeChannel(channel);
       }
     };
-  }, [isStaffBookingView, isStudentUser, queryClient, selectedDate, selectedDateKey, weekOffset]);
+  }, [
+    currentUser?.role,
+    isStaffBookingView,
+    isStudentUser,
+    queryClient,
+    selectedDate,
+    selectedDateKey,
+    weekOffset,
+  ]);
 
   // ── Handlers de calendario ────────────────────────────────────────────────
 
@@ -656,10 +678,23 @@ export default function BookingPage() {
     });
   }
 
+  async function refreshBookingAndShowSuccess(title: string, bookingDate: Date) {
+    try {
+      await refreshBookingWeek(bookingDate);
+    } finally {
+      window.setTimeout(() => {
+        notifySuccess(title, {
+          description:
+            title === "Reserva confirmada"
+              ? "Tu asistencia quedó confirmada."
+              : "Tu cupo quedó registrado.",
+        });
+      }, 300);
+    }
+  }
+
   function showReservationSuccess(title: string, bookingDate: Date) {
-    isReservationSuccessVisibleRef.current = true;
-    pendingBookingWeekRefreshRef.current = bookingDate;
-    setReservationSuccessTitle(title);
+    void refreshBookingAndShowSuccess(title, bookingDate);
   }
 
   async function createBooking(bookingDate: Date, timeBlockId: number) {
@@ -677,11 +712,12 @@ export default function BookingPage() {
       if (error) {
         if (isBookingEligibilityError(error.message)) {
           setIsEligibilityNoticeOpen(true);
+        } else if (isGymStaffBookingRestrictionError(error.message)) {
+          setIsGymStaffBookingRestrictionOpen(true);
         } else if (isFutureCapacityRace(bookingDate, error.message)) {
-          sileo.info({
+          notifyInfo("Disponibilidad actualizada", {
             description: "El último cupo se ocupó mientras revisabas esta fecha.",
-            position: "top-center",
-            title: "Disponibilidad actualizada",
+            zone: "top",
           });
         } else {
           console.error("[BOOKING] could not create booking.", error);
@@ -720,11 +756,12 @@ export default function BookingPage() {
     if (error) {
       if (isBookingEligibilityError(error.message)) {
         setIsEligibilityNoticeOpen(true);
+      } else if (isGymStaffBookingRestrictionError(error.message)) {
+        setIsGymStaffBookingRestrictionOpen(true);
       } else if (isFutureCapacityRace(bookingDate, error.message)) {
-        sileo.info({
+        notifyInfo("Disponibilidad actualizada", {
           description: "El último cupo se ocupó mientras revisabas esta fecha.",
-          position: "top-center",
-          title: "Disponibilidad actualizada",
+          zone: "top",
         });
       } else {
         console.error("[BOOKING] could not replace daily booking.", error);
@@ -749,10 +786,9 @@ export default function BookingPage() {
     });
 
     if (error) {
-      sileo.error({
+      notifyError("No fue posible cancelar la reserva", {
         description: "Su estado pudo haber cambiado.",
-        position: "top-center",
-        title: "No fue posible cancelar la reserva",
+        zone: "top",
       });
       return;
     }
@@ -790,6 +826,11 @@ export default function BookingPage() {
       return;
     }
 
+    if (currentUser?.role === "gym_staff" && selectedBlock.id !== 7) {
+      setIsGymStaffBookingRestrictionOpen(true);
+      return;
+    }
+
     if (
       isAccessPreview ||
       !currentUser?.regulationAccepted ||
@@ -821,6 +862,11 @@ export default function BookingPage() {
       isBookingReplacementPending ||
       !isStandardBookingAvailable(selectedDate, selectedBlock.startTime)
     ) {
+      return;
+    }
+
+    if (currentUser?.role === "gym_staff" && selectedBlock.id !== 7) {
+      setIsGymStaffBookingRestrictionOpen(true);
       return;
     }
 
@@ -929,18 +975,6 @@ export default function BookingPage() {
     setClosureNotice(staffDay.closureReason);
   }
 
-  function handleDismissReservationSuccess() {
-    setReservationSuccessTitle(null);
-  }
-
-  function handleReservationSuccessExited() {
-    const bookingDate = pendingBookingWeekRefreshRef.current;
-
-    isReservationSuccessVisibleRef.current = false;
-    pendingBookingWeekRefreshRef.current = null;
-    if (bookingDate) void refreshBookingWeek(bookingDate);
-  }
-
   async function handleRequestAdmission() {
     if (
       !selectedBlock ||
@@ -967,30 +1001,6 @@ export default function BookingPage() {
     } catch (error) {
       console.error("[RESERVA] current-block admission request failed.", error);
     }
-  }
-
-  function handleConfirmActiveBooking(bookingKey: string) {
-    const bookingEntry = bookingEntries.find((entry) => entry.bookingId === bookingKey);
-    if (!bookingEntry || bookingEntry.status !== "reserved") return;
-
-    const block = BASE_BLOCKS.find((candidate) => candidate.id === bookingEntry.blockId);
-    if (!block || !isConfirmationWindowActive(bookingEntry.bookingDate, block.startTime)) return;
-
-    void confirmBooking(bookingEntry);
-  }
-
-  function handleCancelActiveBooking(bookingKey: string) {
-    const bookingEntry = bookingEntries.find((entry) => entry.bookingId === bookingKey);
-    if (!bookingEntry) return;
-
-    if (
-      getBookingDateKey(bookingEntry.bookingDate) === selectedDateKey &&
-      bookingEntry.blockId === selectedId
-    ) {
-      setSelectedId(null);
-    }
-
-    void cancelBooking(bookingEntry);
   }
 
   function handleGoCurrentBlock() {
@@ -1122,125 +1132,117 @@ export default function BookingPage() {
   return (
     <div className="flex min-h-svh w-full justify-center bg-bg">
       <div className="relative flex h-svh gusm-app-shell flex-col overflow-hidden select-none">
-        {isStaffBookingView ? (
-          <header className="sticky top-0 z-20 border-b border-divider bg-surface select-none">
-            <UserTopBar
-              accountLabel={getReservationAccountLabel(currentUser?.role)}
-              role={currentUser?.role ?? "u_staff"}
-              streakWeeks={currentUser?.streakWeeks}
-              onGoOvercapacity={handleGoCurrentBlock}
-              onGoRoutines={handleGoRoutines}
-              onGoSettings={handleGoSettings}
-              onSignOut={handleSignOut}
-              activeBookings={activeBookings}
-              onConfirmBooking={handleConfirmActiveBooking}
-              onCancelBooking={handleCancelActiveBooking}
-              showActiveBookings={usesDirectActiveBookings}
-              showBookingsInMenu={!usesDirectActiveBookings}
-              showUserName={false}
-            />
-            <WeekIndicator compact weekOffset={weekOffset} onWeekChange={handleWeekChange} />
-          </header>
-        ) : (
-          <UserCalendarBanner
-            accountLabel={getReservationAccountLabel(currentUser?.role)}
-            userName={currentUser?.userName ?? ""}
-            role={currentUser?.role ?? "student"}
-            streakWeeks={currentUser?.streakWeeks ?? 0}
-            selectedDay={dayIdx}
-            weekOffset={weekOffset}
-            onSelectDay={handleSelectDay}
-            onWeekChange={handleWeekChange}
-            onGoOvercapacity={handleGoCurrentBlock}
-            onGoRoutines={handleGoRoutines}
-            onGoSettings={handleGoSettings}
-            onSignOut={handleSignOut}
-            activeBookings={activeBookings}
-            onConfirmBooking={handleConfirmActiveBooking}
-            onCancelBooking={handleCancelActiveBooking}
-            showBookingsInMenu={!usesDirectActiveBookings}
-            showActiveBookings={usesDirectActiveBookings}
-            showUserName={false}
-            weekSelector={<WeekIndicator weekOffset={weekOffset} onWeekChange={handleWeekChange} />}
-            confirmationReminder={
-              confirmationReminder ? (
-                <p className="text-xs leading-4 text-dim" aria-live="polite">
-                  {confirmationReminder}
-                </p>
-              ) : undefined
-            }
-          />
-        )}
+        {currentUser ? (
+          <>
+            {isStaffBookingView ? (
+              <header className="sticky top-0 z-20 border-b border-divider bg-surface select-none">
+                <UserTopBar
+                  accountLabel={getReservationAccountLabel(currentUser.role)}
+                  role={currentUser.role}
+                  streakWeeks={currentUser.streakWeeks}
+                  onGoOvercapacity={handleGoCurrentBlock}
+                  onGoRoutines={handleGoRoutines}
+                  onGoSettings={handleGoSettings}
+                  onSignOut={handleSignOut}
+                  showUserName={false}
+                />
+                <WeekIndicator compact weekOffset={weekOffset} onWeekChange={handleWeekChange} />
+              </header>
+            ) : (
+              <UserCalendarBanner
+                accountLabel={getReservationAccountLabel(currentUser.role)}
+                userName={currentUser.userName}
+                role={currentUser.role}
+                streakWeeks={currentUser.streakWeeks}
+                selectedDay={dayIdx}
+                weekOffset={weekOffset}
+                onSelectDay={handleSelectDay}
+                onWeekChange={handleWeekChange}
+                onGoOvercapacity={handleGoCurrentBlock}
+                onGoRoutines={handleGoRoutines}
+                onGoSettings={handleGoSettings}
+                onSignOut={handleSignOut}
+                showUserName={false}
+                weekSelector={
+                  <WeekIndicator weekOffset={weekOffset} onWeekChange={handleWeekChange} />
+                }
+                confirmationReminder={
+                  confirmationReminder ? (
+                    <p className="text-xs leading-4 text-dim" aria-live="polite">
+                      {confirmationReminder}
+                    </p>
+                  ) : undefined
+                }
+              />
+            )}
 
-        {/* ── Lista de bloques scrolleable ──────────────────────────── */}
-        {isStaffBookingView ? (
-          <StaffWeekBookingList
-            days={staffWeekBookingDays}
-            totalSpots={totalSpots}
-            onCancelBooking={handleCancelStaffBooking}
-            onConfirmAttendance={handleConfirmStaffAttendance}
-            onCreateBooking={handleCreateStaffBooking}
-            onRequestAdmission={handleRequestStaffAdmission}
-            onShowClosureReason={handleShowStaffClosureReason}
-          />
-        ) : (
-          <div className="relative min-h-0 flex-1 overflow-hidden">
-            <motion.div
-              drag="x"
-              dragConstraints={{ left: -24, right: 24 }}
-              dragControls={blockSwipeControls}
-              dragElastic={0.25}
-              dragListener={false}
-              dragSnapToOrigin
-              onDragEnd={handleBlockGridDragEnd}
-              className="flex h-full flex-col gap-2 overflow-x-hidden overflow-y-auto overscroll-contain px-4 pt-3 pb-[calc(5.5rem+env(safe-area-inset-bottom))]"
-            >
-              <AnimatePresence
-                initial={false}
-                mode="popLayout"
-                custom={blockGridTransitionDirection.current}
-              >
+            {/* ── Lista de bloques scrolleable ──────────────────────────── */}
+            {isStaffBookingView ? (
+              <StaffWeekBookingList
+                days={staffWeekBookingDays}
+                totalSpots={totalSpots}
+                onCancelBooking={handleCancelStaffBooking}
+                onConfirmAttendance={handleConfirmStaffAttendance}
+                onCreateBooking={handleCreateStaffBooking}
+                onRequestAdmission={handleRequestStaffAdmission}
+                onShowClosureReason={handleShowStaffClosureReason}
+              />
+            ) : (
+              <div className="relative min-h-0 flex-1 overflow-hidden">
                 <motion.div
-                  key={`${weekOffset}-${dayIdx}`}
-                  custom={blockGridTransitionDirection.current}
-                  variants={BLOCK_GRID_MOTION_VARIANTS}
-                  initial={shouldReduceMotion ? { opacity: 0 } : "enter"}
-                  animate="center"
-                  exit={shouldReduceMotion ? { opacity: 0 } : "exit"}
-                  transition={
-                    shouldReduceMotion
-                      ? { duration: 0.12 }
-                      : { type: "spring", stiffness: 280, damping: 30, mass: 0.8 }
-                  }
-                  className="flex w-full flex-col gap-0 md:gap-2"
+                  drag="x"
+                  dragConstraints={{ left: -24, right: 24 }}
+                  dragControls={blockSwipeControls}
+                  dragElastic={0.25}
+                  dragListener={false}
+                  dragSnapToOrigin
+                  onDragEnd={handleBlockGridDragEnd}
+                  className="flex h-full flex-col gap-2 overflow-x-hidden overflow-y-auto overscroll-contain px-4 pt-3 pb-[calc(5.5rem+env(safe-area-inset-bottom))]"
                 >
-                  {blockCards}
-                  <div className="h-2" />
+                  <AnimatePresence
+                    initial={false}
+                    mode="popLayout"
+                    custom={blockGridTransitionDirection.current}
+                  >
+                    <motion.div
+                      key={`${weekOffset}-${dayIdx}`}
+                      custom={blockGridTransitionDirection.current}
+                      variants={BLOCK_GRID_MOTION_VARIANTS}
+                      initial={shouldReduceMotion ? { opacity: 0 } : "enter"}
+                      animate="center"
+                      exit={shouldReduceMotion ? { opacity: 0 } : "exit"}
+                      transition={
+                        shouldReduceMotion
+                          ? { duration: 0.12 }
+                          : { type: "spring", stiffness: 280, damping: 30, mass: 0.8 }
+                      }
+                      className="flex w-full flex-col gap-0 md:gap-2"
+                    >
+                      {blockCards}
+                      <div className="h-2" />
+                    </motion.div>
+                  </AnimatePresence>
                 </motion.div>
-              </AnimatePresence>
-            </motion.div>
 
-            <div className="pointer-events-none absolute inset-x-0 inset-y-0 z-10 md:hidden">
-              <div
-                aria-hidden="true"
-                onPointerDown={handleBlockSwipePointerDown}
-                className="pointer-events-auto absolute inset-y-0 left-0 w-5 touch-pan-y"
-              />
-              <div
-                aria-hidden="true"
-                onPointerDown={handleBlockSwipePointerDown}
-                className="pointer-events-auto absolute inset-y-0 right-0 w-5 touch-pan-y"
-              />
-            </div>
-          </div>
+                <div className="pointer-events-none absolute inset-x-0 inset-y-0 z-10 md:hidden">
+                  <div
+                    aria-hidden="true"
+                    onPointerDown={handleBlockSwipePointerDown}
+                    className="pointer-events-auto absolute inset-y-0 left-0 w-5 touch-pan-y"
+                  />
+                  <div
+                    aria-hidden="true"
+                    onPointerDown={handleBlockSwipePointerDown}
+                    className="pointer-events-auto absolute inset-y-0 right-0 w-5 touch-pan-y"
+                  />
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <ReservationLoadingSkeleton />
         )}
 
-        <ReservationSuccessOverlay
-          isOpen={reservationSuccessTitle !== null}
-          title={reservationSuccessTitle ?? "Reserva creada"}
-          onDismiss={handleDismissReservationSuccess}
-          onExited={handleReservationSuccessExited}
-        />
         {closureNotice && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-overlay px-5">
             <section
@@ -1308,6 +1310,37 @@ export default function BookingPage() {
                   Ir al perfil
                 </button>
               </div>
+            </section>
+          </div>
+        )}
+        {isGymStaffBookingRestrictionOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-overlay px-5 backdrop-blur-sm">
+            <section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="gym-staff-booking-restriction-title"
+              className="w-full max-w-sm rounded-2xl border border-accent/20 bg-surface p-5 shadow-xl"
+            >
+              <p className="text-sm font-medium tracking-widest text-accent uppercase">
+                Reserva no disponible
+              </p>
+              <h2
+                id="gym-staff-booking-restriction-title"
+                className="mt-2 text-xl font-semibold text-foreground"
+              >
+                Este bloque es solo de monitoreo
+              </h2>
+              <p className="mt-3 text-sm leading-6 text-muted">
+                Como profesor puedes revisar la disponibilidad de todos los bloques. Tu reserva está
+                disponible únicamente a las 17:15.
+              </p>
+              <button
+                type="button"
+                onClick={() => setIsGymStaffBookingRestrictionOpen(false)}
+                className="gusm-button-primary mt-5 w-full"
+              >
+                Entendido
+              </button>
             </section>
           </div>
         )}

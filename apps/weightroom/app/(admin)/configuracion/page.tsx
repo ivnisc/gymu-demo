@@ -725,9 +725,7 @@ export default function ConfigurationPage() {
         <header className="z-20 shrink-0 border-b border-divider bg-surface">
           <UserTopBar
             pageTitle="Configuración"
-            showActiveBookings={false}
             role={currentUser?.role}
-            onGoBookings={() => router.push("/reserva")}
             onGoOvercapacity={() => router.push("/bloque")}
             onGoRoutines={() => router.push("/rutinas")}
             onGoSettings={() => router.push("/configuracion")}
