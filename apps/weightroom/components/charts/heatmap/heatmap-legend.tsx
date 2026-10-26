@@ -99,7 +99,8 @@ export const HeatmapLegend = memo(function HeatmapLegend({
     };
 
   const highlightedLevel =
-    hoveredLegendLevel ?? (tooltipData ? getHeatmapContributionLevel(tooltipData.count) : null);
+    hoveredLegendLevel ??
+    (tooltipData ? getHeatmapContributionLevel(tooltipData.colorValue ?? tooltipData.count) : null);
   const hoverParams = { inactiveOpacity, inactiveScale, activeScale };
   const inactiveEnabled = isHeatmapHoverEffectEnabled(hoverParams);
   const isDimming = isInteractive && highlightedLevel !== null && inactiveEnabled;

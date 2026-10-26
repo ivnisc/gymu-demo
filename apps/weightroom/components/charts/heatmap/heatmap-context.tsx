@@ -23,6 +23,8 @@ type HeatmapTimeScale = ReturnType<typeof scaleTime<number>>;
 type HeatmapLinearScale = ReturnType<typeof scaleLinear<number>>;
 
 export interface HeatmapBin {
+  /** Visual level. Falls back to `count` when a chart does not need normalization. */
+  colorValue?: number;
   count: number;
   bin: number;
   date: Date;
@@ -35,6 +37,8 @@ export interface HeatmapColumn {
 
 export interface HeatmapTooltipData {
   column: number;
+  /** Visual level used by the legend. Falls back to `count`. */
+  colorValue?: number;
   row: number;
   count: number;
   date: Date;

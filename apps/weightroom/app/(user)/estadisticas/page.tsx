@@ -11,7 +11,7 @@ import { UserTopBar } from "@/components/UserTopBar";
 import { AttendanceHeatmap } from "@/components/statistics/AttendanceHeatmap";
 import { TopStreakUsers } from "@/components/statistics/TopStreakUsers";
 import { WeekdayAttendanceRadar } from "@/components/statistics/WeekdayAttendanceRadar";
-import { WeeklyOccupancyRings } from "@/components/statistics/WeeklyOccupancyRings";
+import { WeeklyOccupancyBars } from "@/components/statistics/WeeklyOccupancyBars";
 import { getCurrentUser } from "@/lib/current-user";
 import { clearProfileCache } from "@/lib/profile-cache";
 import { APP_STATISTICS_QUERY_KEY, CURRENT_USER_QUERY_KEY } from "@/lib/query-keys";
@@ -98,9 +98,6 @@ function MonthlyHistogram({
       <div className="flex flex-col gap-2">
         <div>
           <h2 className="text-base font-semibold text-foreground">Actividad mensual</h2>
-          <p className="mt-1 text-sm text-muted">
-            Reservas, asistencias e inasistencias de los últimos seis meses.
-          </p>
         </div>
         <div
           aria-label="Leyenda"
@@ -238,9 +235,7 @@ export default function StatisticsPage() {
         <header className="z-20 shrink-0 border-b border-divider bg-surface">
           <UserTopBar
             pageTitle="Estadísticas"
-            showActiveBookings={false}
             role={currentUser?.role}
-            onGoBookings={() => router.push("/reserva")}
             onGoOvercapacity={() => router.push("/bloque")}
             onGoRoutines={() => router.push("/rutinas")}
             onGoSettings={() => router.push("/configuracion")}
@@ -259,9 +254,6 @@ export default function StatisticsPage() {
           ) : (
             <>
               <h1 className="text-xl font-semibold text-foreground">La sala en cifras</h1>
-              <p className="mt-1 text-sm leading-6 text-muted">
-                Actividad agregada de quienes reservan y entrenan en la sala.
-              </p>
 
               <div className="mt-6">
                 {statisticsQuery.isError || !statisticsQuery.data ? (
@@ -289,12 +281,10 @@ export default function StatisticsPage() {
                       historyStartDate={statisticsQuery.data.historyStartDate}
                       weekdays={statisticsQuery.data.weekdayAttendance}
                     />
-                    <WeeklyOccupancyRings occupancy={statisticsQuery.data.weeklyOccupancy} />
+                    <div className="hidden">
+                      <WeeklyOccupancyBars occupancy={statisticsQuery.data.weeklyOccupancy} />
+                    </div>
                     <TopStreakUsers users={statisticsQuery.data.topStreakUsers} />
-                    <p className="px-1 text-xs leading-5 text-muted">
-                      Los datos son agregados y se actualizan al volver a esta vista. No se muestran
-                      identidades ni información personal.
-                    </p>
                   </div>
                 )}
               </div>

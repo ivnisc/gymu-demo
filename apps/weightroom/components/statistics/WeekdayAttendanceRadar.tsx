@@ -72,7 +72,7 @@ export function WeekdayAttendanceRadar({ historyStartDate, weekdays }: Props) {
       <div>
         <h2 className="text-base font-semibold text-foreground">Ritmo semanal</h2>
         <p className="mt-1 text-sm leading-6 text-muted">
-          Promedio histórico de asistencias por día operativo.
+          Promedio histórico de asistencias por día
         </p>
       </div>
 

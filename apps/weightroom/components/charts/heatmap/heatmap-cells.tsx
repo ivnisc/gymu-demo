@@ -47,14 +47,14 @@ function computeHeatmapCellFaded(
   hoveredCell: { column: number; row: number } | null,
   hoveredLegendLevel: number | null,
   cell: { column: number; row: number },
-  count: number,
+  colorValue: number,
 ): { isHighlighted: boolean; isDimmed: boolean } {
   if (isCellHovering && hoveredCell) {
     const isHighlighted = hoveredCell.column === cell.column && hoveredCell.row === cell.row;
     return { isHighlighted, isDimmed: !isHighlighted };
   }
   if (isLevelHovering && hoveredLegendLevel !== null) {
-    const isHighlighted = getHeatmapContributionLevel(count) === hoveredLegendLevel;
+    const isHighlighted = getHeatmapContributionLevel(colorValue) === hoveredLegendLevel;
     return { isHighlighted, isDimmed: !isHighlighted };
   }
   return { isHighlighted: false, isDimmed: false };
@@ -220,8 +220,9 @@ const HeatmapMotionCell = memo(function HeatmapMotionCell({
     levelStyles,
   } = useHeatmap();
 
-  const levelStyle = levelStyles[getHeatmapContributionLevel(bin.count ?? 0)] ?? levelStyles[0];
-  const targetFill = fillScale(bin.count);
+  const colorValue = bin.colorValue ?? bin.count;
+  const levelStyle = levelStyles[getHeatmapContributionLevel(colorValue)] ?? levelStyles[0];
+  const targetFill = fillScale(colorValue);
   const emptyFill = fillScale(0);
   const patternFillOpacity = heatmapLevelCellFillOpacity(levelStyle);
   const dataOpacity = useMotionValue(0);
@@ -435,6 +436,7 @@ export const HeatmapCells = memo(function HeatmapCells({
       setHoveredCell({ column, row });
       setTooltipData({
         column,
+        colorValue: bin.colorValue,
         row,
         count: bin.count,
         date: bin.date,
@@ -482,7 +484,7 @@ export const HeatmapCells = memo(function HeatmapCells({
       bins={(column) => column.bins}
       binWidth={binWidth}
       colorScale={(count) => colorScale(typeof count === "number" ? count : count?.valueOf())}
-      count={(bin) => bin.count}
+      count={(bin) => bin.colorValue ?? bin.count}
       data={data}
       gap={gap}
       xScale={xScale}
@@ -507,7 +509,7 @@ export const HeatmapCells = memo(function HeatmapCells({
                 hoveredCell,
                 hoveredLegendLevel,
                 cell,
-                bin.count,
+                bin.colorValue ?? bin.count,
               );
 
               return (

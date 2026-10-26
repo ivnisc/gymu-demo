@@ -22,6 +22,7 @@ type DailyBucket = {
   absences: number;
   attendees: number;
   bookings: number;
+  capacity: number;
   date: string;
 };
 type ClosureData = {
@@ -398,10 +399,10 @@ function getTopStreakUsers(
 
   return topUsers
     .sort((first, second) => {
-      if (second.streakWeeks !== first.streakWeeks) return second.streakWeeks - first.streakWeeks;
       if (second.totalAttendances !== first.totalAttendances) {
         return second.totalAttendances - first.totalAttendances;
       }
+      if (second.streakWeeks !== first.streakWeeks) return second.streakWeeks - first.streakWeeks;
       return first.userName.localeCompare(second.userName, "es-CL");
     })
     .slice(0, 10);
@@ -500,7 +501,7 @@ export async function GET(request: NextRequest) {
     const closureEndDate = addDays(currentWeekStartDate, 4);
     const [historicalAttendanceRows, closureData, currentWeekBookingRows] = await Promise.all([
       getBookingRows(historyStartDate, today, "present"),
-      getClosureData(historyStartDate, closureEndDate),
+      getClosureData(startDate, closureEndDate),
       getBookingRows(currentWeekStartDate, closureEndDate),
     ]);
 
@@ -511,7 +512,13 @@ export async function GET(request: NextRequest) {
 
     const dailyBuckets = new Map<string, DailyBucket>();
     for (const date of getDayKeys(startDate, today)) {
-      dailyBuckets.set(date, { absences: 0, attendees: 0, bookings: 0, date });
+      dailyBuckets.set(date, {
+        absences: 0,
+        attendees: 0,
+        bookings: 0,
+        capacity: getOpenBlockCount(date, closureData) * settingsResult.data.standard_capacity,
+        date,
+      });
     }
 
     const activeParticipantIds = new Set<string>();

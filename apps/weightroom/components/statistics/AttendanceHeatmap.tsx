@@ -41,6 +41,24 @@ function getSunday(date: Date) {
   return sunday;
 }
 
+function getRelativeIntensityByDate(attendance: DailyAttendance[]) {
+  const operatingDays = attendance
+    .filter((day) => day.attendees > 0 && day.capacity > 0)
+    .map((day) => ({
+      date: day.date,
+      ratio: day.attendees / day.capacity,
+    }))
+    .sort((first, second) => first.ratio - second.ratio);
+  const intensityByDate = new Map<string, number>();
+
+  for (const [index, day] of operatingDays.entries()) {
+    const intensity = Math.min(4, Math.floor((index / operatingDays.length) * 4) + 1);
+    intensityByDate.set(day.date, intensity);
+  }
+
+  return intensityByDate;
+}
+
 function createHeatmapColumns(attendance: DailyAttendance[]): HeatmapColumn[] {
   const firstDay = attendance.at(0);
   const lastDay = attendance.at(-1);
@@ -48,6 +66,7 @@ function createHeatmapColumns(attendance: DailyAttendance[]): HeatmapColumn[] {
   if (!firstDay || !lastDay) return [];
 
   const attendanceByDate = new Map(attendance.map((day) => [day.date, day.attendees] as const));
+  const intensityByDate = getRelativeIntensityByDate(attendance);
   const start = getSunday(createDate(firstDay.date));
   const end = getSunday(createDate(lastDay.date));
   const columns: HeatmapColumn[] = [];
@@ -64,6 +83,7 @@ function createHeatmapColumns(attendance: DailyAttendance[]): HeatmapColumn[] {
       return {
         bin: dayIndex,
         count: attendanceByDate.get(getDateKey(date)) ?? 0,
+        colorValue: intensityByDate.get(getDateKey(date)) ?? 0,
         date,
       };
     });
@@ -85,9 +105,6 @@ export function AttendanceHeatmap({ attendance }: Props) {
     <section className="rounded-2xl border border-divider bg-input/30 px-4 py-4">
       <div>
         <h2 className="text-base font-semibold text-foreground">Asistencia diaria</h2>
-        <p className="mt-1 text-sm text-muted">
-          Cada celda representa asistentes registrados en una fecha.
-        </p>
       </div>
 
       {columns.length > 0 ? (

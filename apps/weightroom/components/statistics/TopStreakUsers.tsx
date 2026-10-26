@@ -15,10 +15,7 @@ export function TopStreakUsers({ users }: Props) {
   return (
     <section className="rounded-2xl border border-divider bg-input/30 px-4 py-4">
       <div>
-        <h2 className="text-base font-semibold text-foreground">Top 10 de rachas</h2>
-        <p className="mt-1 text-sm leading-6 text-muted">
-          Ordenado por racha vigente y, ante empate, asistencias acumuladas.
-        </p>
+        <h2 className="text-base font-semibold text-foreground">Top 10 de asistencias</h2>
       </div>
 
       {users.length > 0 ? (

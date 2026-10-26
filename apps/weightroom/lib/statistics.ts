@@ -1,4 +1,7 @@
 import * as z from "zod/v4";
+import { getStatisticsPreview } from "@/lib/statistics-preview";
+
+const STATISTICS_PREVIEW_ENABLED = process.env.NEXT_PUBLIC_GYMU_STATISTICS_PREVIEW === "enabled";
 
 const MONTHLY_STATISTICS_SCHEMA = z.object({
   absences: z.number().int().nonnegative(),
@@ -11,6 +14,7 @@ const DAILY_STATISTICS_SCHEMA = z.object({
   absences: z.number().int().nonnegative(),
   attendees: z.number().int().nonnegative(),
   bookings: z.number().int().nonnegative(),
+  capacity: z.number().int().nonnegative(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 });
 
@@ -48,12 +52,17 @@ const APP_STATISTICS_SCHEMA = z.object({
 });
 
 export type AppStatistics = z.infer<typeof APP_STATISTICS_SCHEMA>;
-export type DailyAttendance = Pick<AppStatistics["daily"][number], "attendees" | "date">;
+export type DailyAttendance = Pick<
+  AppStatistics["daily"][number],
+  "attendees" | "capacity" | "date"
+>;
 export type WeekdayAttendance = AppStatistics["weekdayAttendance"][number];
 export type WeeklyOccupancy = AppStatistics["weeklyOccupancy"][number];
 export type TopStreakUser = AppStatistics["topStreakUsers"][number];
 
 export async function getAppStatistics(): Promise<AppStatistics> {
+  if (STATISTICS_PREVIEW_ENABLED) return getStatisticsPreview();
+
   const response = await fetch("/api/statistics", { cache: "no-store" });
   if (!response.ok) throw new Error("Statistics request was rejected.");
 
