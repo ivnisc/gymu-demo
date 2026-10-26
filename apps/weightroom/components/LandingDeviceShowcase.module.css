@@ -1,39 +1,197 @@
 .showcase {
   position: relative;
-  height: 300svh;
-  border-top: 1px solid var(--color-ghost);
+  height: 280svh;
 }
 .stage {
   position: sticky;
   top: 0;
-  display: grid;
   height: 100svh;
-  place-items: center;
-  padding-block: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  perspective: 1200px;
+  padding-block: 24px;
 }
-.frame {
-  display: grid;
-  width: min(80%, 480px);
-}
-.first,
-.second {
-  grid-area: 1 / 1;
-}
-.second {
-  opacity: 0;
-}
-.frame img {
-  display: block;
+.heading {
+  z-index: 0;
   width: 100%;
-  height: auto;
-  max-height: 72svh;
-  object-fit: contain;
 }
-.frame figcaption {
-  margin-top: 24px;
+.title {
   text-align: center;
-  font-size: 16px;
+  font-size: clamp(20px, 4vw, 32px);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.05em;
+}
+.title span {
+  display: block;
+  margin-top: 8px;
+  color: var(--color-accent);
+  font-size: clamp(42px, 10vw, 96px);
+  font-weight: 850;
+  line-height: 1;
+  letter-spacing: -0.07em;
+}
+.device {
+  position: relative;
+  z-index: 1;
+  margin-top: 20px;
+}
+.phone {
+  position: relative;
+  width: min(280px, 32svh, 72vw);
+  padding: 6px;
+  border: 1px solid var(--color-muted);
+  border-radius: 36px;
+  background: var(--color-ghost);
+  box-shadow: 0 18px 48px var(--color-ghost);
+}
+.phone::before,
+.phone::after {
+  position: absolute;
+  content: "";
+  width: 3px;
+  background: var(--color-muted);
+  border-radius: 2px;
+  top: 22%;
+  height: 44px;
+}
+.phone::before {
+  left: -4px;
+}
+.phone::after {
+  right: -4px;
+  height: 60px;
+}
+.screen {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 390 / 840;
+  overflow: hidden;
+  border-radius: 29px;
+  background: var(--color-surface);
+}
+.interface {
+  width: 390px;
+  height: 840px;
+  transform-origin: top left;
+  background: var(--color-surface);
+  color: var(--color-foreground);
+  pointer-events: none;
+  user-select: none;
+}
+.camera {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 27%;
+  height: 16px;
+  border-radius: 20px;
+  background: #000;
+}
+.status {
+  display: flex;
+  justify-content: space-between;
+  height: 44px;
+  padding: 14px 24px 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+}
+.topbar strong {
+  font-size: 27px;
+  font-weight: 900;
+  letter-spacing: -0.08em;
+}
+.week {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 20px;
+  padding: 8px 0;
   color: var(--color-muted);
+  font-size: 14px;
+}
+.days {
+  display: flex;
+  justify-content: space-around;
+  padding: 8px 16px 14px;
+  border-bottom: 1px solid var(--color-divider);
+}
+.days > div {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 14px;
+  color: var(--color-muted);
+}
+.days strong {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--color-input);
+}
+.days [data-selected] strong {
+  background: var(--color-accent-fill);
+  color: var(--color-accent-foreground);
+}
+.blocks {
+  display: grid;
+  gap: 8px;
+  padding: 12px 16px;
+}
+.navigation {
+  position: absolute;
+  bottom: 0;
+  display: flex;
+  justify-content: space-around;
+  width: 100%;
+  padding: 12px 12px 20px;
+  border-top: 1px solid var(--color-divider);
+  background: var(--color-surface);
+}
+.navigation span {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  font-size: 14px;
+  color: var(--color-muted);
+}
+.navigation span:first-child {
+  color: var(--color-accent);
+}
+.caption {
+  position: relative;
+  z-index: 2;
+  max-width: 36ch;
+  margin-top: 12px;
+  text-align: center;
+  color: var(--color-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.still {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+  padding-block: 64px;
+}
+@media (min-width: 1024px) {
+  .device {
+    margin-top: 32px;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .showcase {
@@ -42,14 +200,5 @@
   .stage {
     position: static;
     height: auto;
-  }
-  .frame {
-    gap: 48px;
-    transform: none !important;
-  }
-  .first,
-  .second {
-    grid-area: auto;
-    opacity: 1 !important;
   }
 }

@@ -8,7 +8,6 @@ import { LandingThemeToggle } from "@/components/LandingThemeToggle";
 import { GITHUB_VIMASTO_ORG_URL } from "@/constants";
 import { LandingSection } from "@/components/LandingSection";
 import { LandingDeviceShowcase } from "@/components/LandingDeviceShowcase";
-import { LANDING_DEVICE_RENDERS } from "@/lib/landing-device-renders";
 import styles from "./landing.module.css";
 
 export const metadata: Metadata = {
@@ -60,6 +59,7 @@ export default function RootPage() {
               />
             </div>
           </section>
+          <LandingDeviceShowcase />
           <LandingSection
             className={clsx(styles.sequence, styles.reveal)}
             aria-label="Cómo funciona GYMU"
@@ -102,7 +102,6 @@ export default function RootPage() {
             </div>
             <LandingStreakPath />
           </LandingSection>
-          {LANDING_DEVICE_RENDERS && <LandingDeviceShowcase renders={LANDING_DEVICE_RENDERS} />}
         </main>
         <footer className={styles.footer}>
           <div>
