@@ -43,10 +43,10 @@
   --color-accent-fill: #f5b400;
   --color-accent-foreground: #060606;
   --color-progress: #f5b400;
-  --color-bg: #0a0a0a;
-  --color-surface: #0a0a0a;
+  --color-bg: #0f0f0f;
+  --color-surface: #0f0f0f;
   --color-divider: #111111;
-  --color-input: #0a0a0a; /* same as neutral 950 */
+  --color-input: #0f0f0f;
   --color-muted: #a1a1aa;
   --color-dim: #3f3f46;
   --color-ghost: #2a2a2a;
@@ -64,10 +64,6 @@
 
 :root {
   --font-size-bottom-navigation: calc(var(--text-sm) - 0.0625rem);
-  --sileo-state-action: var(--color-capacity-segment-blue) !important;
-  --sileo-state-error: var(--color-capacity-segment-red) !important;
-  --sileo-state-info: var(--color-capacity-segment-blue) !important;
-  --sileo-state-warning: var(--color-capacity-segment-yellow) !important;
   color-scheme: dark;
   --chart-1: var(--color-capacity-segment-blue);
   --chart-2: var(--color-accent);
@@ -89,7 +85,7 @@
   --chart-marker-border: var(--color-divider);
   --chart-marker-foreground: var(--color-foreground);
   --chart-label: var(--color-muted);
-  --chart-scale-01: #0a0a0a;
+  --chart-scale-01: #0f0f0f;
   --chart-scale-02: #132331;
   --chart-scale-03: #1c415e;
   --chart-scale-04: var(--color-capacity-segment-blue);
@@ -103,7 +99,7 @@
   --color-accent-fill: #006eb8;
   --color-accent-foreground: #ffffff;
   --shadow-accent: 0 4px 24px rgb(0 75 133 / 25%);
-  --color-bg: #f1f0eb;
+  --color-bg: #ffffff;
   --color-surface: #ffffff;
   --color-divider: #d7d3ca;
   --color-input: #e7f0f5;
@@ -136,11 +132,11 @@
 }
 
 :root[data-theme="light"] .routine-exercise-guide-frame {
-  background-color: #000;
+  background-color: #fff;
 }
 
 :root[data-theme="light"] .routine-exercise-guide-image {
-  filter: grayscale(1) contrast(1000%);
+  filter: grayscale(1) invert(1) contrast(1000%);
 }
 
 html.gymu-app-viewport,
@@ -163,30 +159,35 @@ body {
   transition-delay: 0s !important;
 }
 
-[data-sileo-viewport] {
-  z-index: 45 !important;
-}
-
-[data-sileo-header-inner] {
-  justify-content: center;
-}
-
-[data-sileo-title] {
+[data-sonner-toaster] {
   font-family: var(--font-montserrat) !important;
-  font-size: var(--text-sm) !important;
-  font-weight: 600 !important;
-  text-align: center;
-  text-transform: none !important;
 }
 
-[data-sileo-description] {
-  font-family: var(--font-montserrat) !important;
+[data-sonner-toast][data-styled="true"] {
   font-size: var(--text-sm) !important;
-  text-align: center !important;
 }
 
-:root:not([data-theme="light"]) [data-sileo-title].sileo-qr-temporary-title {
-  color: var(--color-accent) !important;
+.gymu-navigation-ios,
+.gymu-navigation-dock {
+  display: none;
+}
+
+@media (max-width: 63.999rem) {
+  .gymu-navigation-dock {
+    display: flex;
+  }
+}
+
+@supports (-webkit-touch-callout: none) {
+  @media (max-width: 63.999rem) and (pointer: coarse) {
+    .gymu-navigation-ios {
+      display: flex;
+    }
+
+    .gymu-navigation-dock {
+      display: none;
+    }
+  }
 }
 
 @keyframes gymu-streak-timeline-fill {
@@ -242,6 +243,25 @@ body {
   animation: gymu-diagonal-theme 650ms cubic-bezier(0.23, 1, 0.32, 1) both;
 }
 
+.gymu-profile-theme-transition::view-transition-group(root) {
+  animation-duration: 220ms;
+}
+
+.gymu-profile-theme-transition::view-transition-old(root),
+.gymu-profile-theme-transition::view-transition-new(root) {
+  mix-blend-mode: normal;
+}
+
+.gymu-profile-theme-transition::view-transition-old(root) {
+  z-index: 1;
+  animation: gymu-profile-theme-fade-out 120ms ease-out both;
+}
+
+.gymu-profile-theme-transition::view-transition-new(root) {
+  z-index: 2;
+  animation: gymu-profile-theme-fade-in 220ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
 @keyframes gymu-diagonal-theme {
   from {
     clip-path: polygon(100% 0, 100% 0, 100% 0);
@@ -249,6 +269,22 @@ body {
 
   to {
     clip-path: polygon(-100% 0, 100% 0, 100% 200%);
+  }
+}
+
+@keyframes gymu-profile-theme-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes gymu-profile-theme-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
   }
 }
 

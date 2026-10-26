@@ -63,3 +63,39 @@ export async function transitionThemePreference(
     root.classList.remove("gymu-theme-transition");
   }
 }
+
+export async function fadeThemePreference(
+  themePreference: ThemePreference,
+  onThemeApplied: () => void,
+) {
+  function applyTheme() {
+    applyThemePreference(themePreference);
+    onThemeApplied();
+  }
+
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    applyTheme();
+    return;
+  }
+
+  if (!document.startViewTransition) {
+    applyTheme();
+    document.documentElement.animate([{ opacity: 0.76 }, { opacity: 1 }], {
+      duration: 220,
+      easing: "cubic-bezier(0.2, 0, 0, 1)",
+    });
+    return;
+  }
+
+  const root = document.documentElement;
+  root.classList.add("gymu-profile-theme-transition");
+
+  try {
+    const transition = document.startViewTransition(applyTheme);
+    await transition.finished;
+  } catch {
+    applyTheme();
+  } finally {
+    root.classList.remove("gymu-profile-theme-transition");
+  }
+}

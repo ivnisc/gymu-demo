@@ -4,6 +4,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { Moon, Sun } from "lucide-react";
 import { clsx } from "clsx";
 import {
+  fadeThemePreference,
   getDocumentThemePreference,
   transitionThemePreference,
   type ThemePreference,
@@ -12,6 +13,7 @@ import {
 type Props = Omit<React.ComponentProps<"button">, "aria-label" | "onClick" | "type"> & {
   onThemePreferenceChange?: (themePreference: ThemePreference) => Promise<boolean>;
   onThemePreferenceSelect?: (themePreference: ThemePreference) => void;
+  transitionStyle?: "diagonal" | "fade";
 };
 
 export function ThemeToggle({
@@ -19,6 +21,7 @@ export function ThemeToggle({
   disabled,
   onThemePreferenceChange,
   onThemePreferenceSelect,
+  transitionStyle = "diagonal",
   ...props
 }: Props) {
   const [theme, setTheme] = useState<ThemePreference>("dark");
@@ -39,7 +42,10 @@ export function ThemeToggle({
     setIsUpdating(true);
 
     try {
-      await transitionThemePreference(nextTheme, () => {
+      const transitionTheme =
+        transitionStyle === "fade" ? fadeThemePreference : transitionThemePreference;
+
+      await transitionTheme(nextTheme, () => {
         setTheme(nextTheme);
         onThemePreferenceSelect?.(nextTheme);
       });
@@ -54,7 +60,7 @@ export function ThemeToggle({
         }
 
         if (!didPersist) {
-          await transitionThemePreference(previousTheme, () => {
+          await transitionTheme(previousTheme, () => {
             setTheme(previousTheme);
             onThemePreferenceSelect?.(previousTheme);
           });
