@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   BadgeAlert,
@@ -14,6 +15,7 @@ import {
 } from "lucide-react";
 import * as z from "zod/v4";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { CREATE_SUPABASE_BROWSER_CLIENT } from "@gusm/database/client";
 import { ProfileCalendar, type ProfileAttendanceEntry } from "@/components/ProfileCalendar";
 import { StreakMilestoneProgress } from "@/components/StreakMilestoneProgress";
@@ -108,6 +110,10 @@ const MAX_HEIGHT_CM = 230;
 const MIN_WEIGHT_KG = 35;
 const MAX_WEIGHT_KG = 300;
 const MIN_CAREER_ENTRY_YEAR = 2017;
+const PROFILE_CONTENT_TRANSITION = {
+  duration: 0.18,
+  ease: [0.23, 1, 0.32, 1] as const,
+};
 
 function getMonthStart(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), 1);
@@ -287,8 +293,9 @@ export default function ProfilePage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const today = getSantiagoToday();
+  const shouldReduceMotion = useReducedMotion();
   const [visibleMonth, setVisibleMonth] = useState(() => getMonthStart(today));
-  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [isPersonalInfoEditing, setIsPersonalInfoEditing] = useState(false);
   const [formValues, setFormValues] = useState<ProfileFormValues>({
     dateOfBirth: "",
     reportedSex: "",
@@ -353,13 +360,13 @@ export default function ProfilePage() {
 
     setFormValues(createProfileFormValues(profile));
     setFormError(null);
-    setIsEditorOpen(true);
+    setIsPersonalInfoEditing(true);
   }
 
   function closeEditor() {
     if (isSaving) return;
 
-    setIsEditorOpen(false);
+    setIsPersonalInfoEditing(false);
     setFormError(null);
   }
 
@@ -377,7 +384,7 @@ export default function ProfilePage() {
 
     try {
       await saveProfileMutation.mutateAsync(profileData.data);
-      setIsEditorOpen(false);
+      setIsPersonalInfoEditing(false);
     } catch (error) {
       console.error("[PROFILE] could not save profile data.", error);
       setFormError("No fue posible guardar tus datos. Intenta nuevamente.");
@@ -455,13 +462,12 @@ export default function ProfilePage() {
             pageTitle="Perfil"
             userName={profile?.userName}
             role={profile?.role}
-            showActiveBookings={false}
-            onGoBookings={() => router.push("/reserva")}
             onGoOvercapacity={() => router.push("/bloque")}
             onGoRoutines={() => router.push("/rutinas")}
             onGoSettings={() => router.push("/configuracion")}
             onSignOut={signOut}
             onThemePreferenceChange={updateThemePreference}
+            themeTransitionStyle="fade"
           />
         </header>
 
@@ -506,57 +512,263 @@ export default function ProfilePage() {
                   </div>
                   <button
                     type="button"
-                    onClick={openEditor}
-                    disabled={!profile}
-                    aria-label="Editar información personal"
+                    onClick={isPersonalInfoEditing ? closeEditor : openEditor}
+                    disabled={!profile || (isPersonalInfoEditing && isSaving)}
+                    aria-label={
+                      isPersonalInfoEditing
+                        ? "Cancelar edición de información personal"
+                        : "Editar información personal"
+                    }
                     className="flex size-11 items-center justify-center rounded-full text-accent transition-colors hover:bg-accent/10 disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    <Pencil className="size-4" aria-hidden="true" />
+                    {isPersonalInfoEditing ? (
+                      <X className="size-4" aria-hidden="true" />
+                    ) : (
+                      <Pencil className="size-4" aria-hidden="true" />
+                    )}
                   </button>
                 </div>
 
-                <dl className="mt-4 grid grid-cols-2 divide-x divide-y divide-accent/15 overflow-hidden rounded-xl border border-accent/15">
-                  <div className="min-w-0 px-3 py-3">
-                    <dt className="text-sm text-dim">Edad</dt>
-                    <dd className="mt-1 truncate text-base font-medium text-foreground">
-                      {getProfileValue(age)}
-                    </dd>
-                  </div>
-                  <div className="min-w-0 px-3 py-3">
-                    <dt className="text-sm text-dim">Sexo declarado</dt>
-                    <dd className="mt-1 truncate text-base font-medium text-foreground">
-                      {getProfileValue(sexLabel)}
-                    </dd>
-                  </div>
-                  <div className="min-w-0 px-3 py-3">
-                    <dt className="text-sm text-dim">Altura</dt>
-                    <dd className="mt-1 truncate text-base font-medium text-foreground">
-                      {profile?.heightCm === null || profile?.heightCm === undefined
-                        ? "No informada"
-                        : `${profile.heightCm} cm`}
-                    </dd>
-                  </div>
-                  <div className="min-w-0 px-3 py-3">
-                    <dt className="text-sm text-dim">Peso</dt>
-                    <dd className="mt-1 truncate text-base font-medium text-foreground">
-                      {profile?.weightKg === null || profile?.weightKg === undefined
-                        ? "No informado"
-                        : `${profile.weightKg} kg`}
-                    </dd>
-                  </div>
-                  <div className="col-span-2 min-w-0 px-3 py-3">
-                    <dt className="text-sm text-dim">Carrera</dt>
-                    <dd className="mt-1 truncate text-base font-medium text-foreground">
-                      {getProfileValue(profile?.academicProgramName ?? null)}
-                    </dd>
-                  </div>
-                  <div className="min-w-0 px-3 py-3">
-                    <dt className="text-sm text-dim">Año de ingreso</dt>
-                    <dd className="mt-1 truncate text-base font-medium text-foreground">
-                      {getProfileValue(profile?.careerEntryYear ?? null)}
-                    </dd>
-                  </div>
-                </dl>
+                <AnimatePresence initial={false} mode="wait">
+                  {isPersonalInfoEditing ? (
+                    <motion.form
+                      key="editing"
+                      aria-label="Editar información personal"
+                      onSubmit={saveProfile}
+                      initial={
+                        shouldReduceMotion ? false : { opacity: 0, transform: "translateY(6px)" }
+                      }
+                      animate={{ opacity: 1, transform: "translateY(0)" }}
+                      exit={
+                        shouldReduceMotion
+                          ? undefined
+                          : { opacity: 0, transform: "translateY(-4px)" }
+                      }
+                      transition={shouldReduceMotion ? { duration: 0 } : PROFILE_CONTENT_TRANSITION}
+                      className="mt-4 grid grid-cols-2 gap-x-3 gap-y-4 border-t border-divider/80 pt-4 lg:grid-cols-4"
+                    >
+                      <label className="grid min-w-0 gap-1.5 text-sm text-foreground-muted">
+                        <span className="grid gap-0.5">
+                          <span>Fecha de nacimiento</span>
+                          <span className="text-red-500">Requerido</span>
+                        </span>
+                        <input
+                          type="date"
+                          value={formValues.dateOfBirth}
+                          onChange={(event) =>
+                            setFormValues((currentValues) => ({
+                              ...currentValues,
+                              dateOfBirth: event.target.value,
+                            }))
+                          }
+                          max={
+                            getMonthQuery(today) + `-${String(today.getDate()).padStart(2, "0")}`
+                          }
+                          className="gusm-input-primary"
+                        />
+                      </label>
+
+                      <label className="grid min-w-0 gap-1.5 text-sm text-foreground-muted">
+                        <span className="grid gap-0.5">
+                          <span>Sexo declarado</span>
+                          <span className="text-red-500">Requerido</span>
+                        </span>
+                        <select
+                          value={formValues.reportedSex}
+                          onChange={(event) =>
+                            setFormValues((currentValues) => ({
+                              ...currentValues,
+                              reportedSex:
+                                event.target.value === "masculino" ||
+                                event.target.value === "femenino" ||
+                                event.target.value === "otro" ||
+                                event.target.value === "prefiero_no_decir"
+                                  ? event.target.value
+                                  : "",
+                            }))
+                          }
+                          className="gusm-input-primary"
+                        >
+                          <option value="">No informado</option>
+                          <option value="masculino">Masculino</option>
+                          <option value="femenino">Femenino</option>
+                          <option value="otro">Otro</option>
+                          <option value="prefiero_no_decir">Prefiero no decir</option>
+                        </select>
+                      </label>
+
+                      <label className="grid min-w-0 gap-1.5 text-sm text-foreground-muted">
+                        <span className="grid gap-0.5">
+                          <span>Altura (cm)</span>
+                          <span className="text-red-500">Requerido</span>
+                        </span>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          maxLength={6}
+                          value={formValues.heightCm}
+                          onChange={(event) =>
+                            setFormValues((currentValues) => ({
+                              ...currentValues,
+                              heightCm: truncateHeightInput(event.target.value),
+                            }))
+                          }
+                          className="gusm-input-primary"
+                        />
+                      </label>
+
+                      <label className="grid min-w-0 gap-1.5 text-sm text-foreground-muted">
+                        <span className="grid gap-0.5">
+                          <span>Peso (kg)</span>
+                          <span className="text-red-500">Requerido</span>
+                        </span>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          maxLength={6}
+                          value={formValues.weightKg}
+                          onChange={(event) =>
+                            setFormValues((currentValues) => ({
+                              ...currentValues,
+                              weightKg: truncateWeightInput(event.target.value),
+                            }))
+                          }
+                          className="gusm-input-primary"
+                        />
+                      </label>
+
+                      <label className="col-span-2 grid min-w-0 gap-1.5 text-sm text-foreground-muted lg:col-span-3">
+                        <span className="grid gap-0.5">
+                          <span>Carrera</span>
+                          <span className="text-red-500">Requerido</span>
+                        </span>
+                        <select
+                          value={formValues.academicProgramId}
+                          onChange={(event) =>
+                            setFormValues((currentValues) => ({
+                              ...currentValues,
+                              academicProgramId: event.target.value,
+                            }))
+                          }
+                          className="gusm-input-primary"
+                        >
+                          <option value="">Selecciona tu carrera</option>
+                          {academicPrograms.map((academicProgram) => (
+                            <option
+                              key={academicProgram.academicProgramId}
+                              value={academicProgram.academicProgramId}
+                            >
+                              {academicProgram.programName}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label className="col-span-2 grid min-w-0 gap-1.5 text-sm text-foreground-muted lg:col-span-1 lg:max-w-44">
+                        <span className="grid gap-0.5">
+                          <span>Año de ingreso</span>
+                          <span className="text-red-500">Requerido</span>
+                        </span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={4}
+                          value={formValues.careerEntryYear}
+                          onChange={(event) =>
+                            setFormValues((currentValues) => ({
+                              ...currentValues,
+                              careerEntryYear: event.target.value.replace(/\D/g, "").slice(0, 4),
+                            }))
+                          }
+                          className="gusm-input-primary"
+                        />
+                      </label>
+
+                      {formError && (
+                        <p role="alert" className="col-span-2 text-sm text-rose-400 lg:col-span-4">
+                          {formError}
+                        </p>
+                      )}
+
+                      <div className="col-span-2 mt-2 grid grid-cols-2 gap-3 border-t border-divider/80 pt-4 lg:col-span-4">
+                        <button
+                          type="button"
+                          onClick={closeEditor}
+                          disabled={isSaving}
+                          className="gusm-control-height rounded-xl border border-divider px-4 text-base text-foreground-muted transition-colors hover:border-muted disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={isSaving}
+                          className="flex gusm-button-primary items-center justify-center gap-2"
+                        >
+                          {isSaving && (
+                            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                          )}
+                          Guardar
+                        </button>
+                      </div>
+                    </motion.form>
+                  ) : (
+                    <motion.dl
+                      key="reading"
+                      initial={
+                        shouldReduceMotion ? false : { opacity: 0, transform: "translateY(4px)" }
+                      }
+                      animate={{ opacity: 1, transform: "translateY(0)" }}
+                      exit={
+                        shouldReduceMotion
+                          ? undefined
+                          : { opacity: 0, transform: "translateY(-4px)" }
+                      }
+                      transition={shouldReduceMotion ? { duration: 0 } : PROFILE_CONTENT_TRANSITION}
+                      className="mt-4 grid grid-cols-2 gap-x-3 gap-y-4 border-t border-divider/80 pt-4 lg:grid-cols-4"
+                    >
+                      <div className="min-w-0">
+                        <dt className="text-sm text-dim">Edad</dt>
+                        <dd className="mt-1 truncate text-base font-medium text-foreground">
+                          {getProfileValue(age)}
+                        </dd>
+                      </div>
+                      <div className="min-w-0">
+                        <dt className="text-sm text-dim">Sexo declarado</dt>
+                        <dd className="mt-1 truncate text-base font-medium text-foreground">
+                          {getProfileValue(sexLabel)}
+                        </dd>
+                      </div>
+                      <div className="min-w-0">
+                        <dt className="text-sm text-dim">Altura</dt>
+                        <dd className="mt-1 truncate text-base font-medium text-foreground">
+                          {profile?.heightCm === null || profile?.heightCm === undefined
+                            ? "No informada"
+                            : `${profile.heightCm} cm`}
+                        </dd>
+                      </div>
+                      <div className="min-w-0">
+                        <dt className="text-sm text-dim">Peso</dt>
+                        <dd className="mt-1 truncate text-base font-medium text-foreground">
+                          {profile?.weightKg === null || profile?.weightKg === undefined
+                            ? "No informado"
+                            : `${profile.weightKg} kg`}
+                        </dd>
+                      </div>
+                      <div className="min-w-0 lg:col-span-3">
+                        <dt className="text-sm text-dim">Carrera</dt>
+                        <dd className="mt-1 text-base leading-5 font-medium text-foreground">
+                          {getProfileValue(profile?.academicProgramName ?? null)}
+                        </dd>
+                      </div>
+                      <div className="min-w-0 lg:col-span-1">
+                        <dt className="text-sm text-dim">Año de ingreso</dt>
+                        <dd className="mt-1 truncate text-base font-medium text-foreground">
+                          {getProfileValue(profile?.careerEntryYear ?? null)}
+                        </dd>
+                      </div>
+                    </motion.dl>
+                  )}
+                </AnimatePresence>
               </section>
 
               <section
@@ -576,7 +788,17 @@ export default function ProfilePage() {
                 <div className="mt-4 divide-y divide-accent/15 border-y border-accent/15">
                   <div className="flex items-center justify-between gap-4 py-3">
                     <div className="min-w-0">
-                      <p className="text-base font-medium text-foreground">Reglamento de uso</p>
+                      <div className="flex items-center gap-1">
+                        <p className="text-base font-medium text-foreground">Reglamento de uso</p>
+                        <Link
+                          href="/terminos"
+                          aria-label="Consultar reglamento de uso"
+                          title="Consultar reglamento de uso"
+                          className="flex size-8 shrink-0 items-center justify-center rounded-lg text-accent transition-colors hover:bg-accent/10 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
+                        >
+                          <BookOpenCheck className="size-4" aria-hidden="true" />
+                        </Link>
+                      </div>
                       {!isRegulationAccepted && (
                         <p className="mt-0.5 text-sm text-muted">Pendiente de aceptación</p>
                       )}
@@ -586,15 +808,7 @@ export default function ProfilePage() {
                         className="size-5 shrink-0 text-emerald-500"
                         aria-label="Aceptado"
                       />
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => router.push("/terminos")}
-                        className="shrink-0 gusm-button-primary px-3"
-                      >
-                        Revisar
-                      </button>
-                    )}
+                    ) : null}
                   </div>
 
                   <div className="flex items-center justify-between gap-4 py-3">
@@ -610,7 +824,7 @@ export default function ProfilePage() {
                       <button
                         type="button"
                         onClick={openEditor}
-                        className="shrink-0 gusm-button-primary px-3"
+                        className="min-h-11 shrink-0 px-1 text-base font-semibold text-accent underline decoration-accent/50 underline-offset-4 transition-colors hover:text-accent/75 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
                       >
                         Completar
                       </button>
@@ -683,20 +897,6 @@ export default function ProfilePage() {
               )}
 
               <section className="rounded-2xl border border-accent/15 bg-input/30 px-4 py-4">
-                <p className="text-xs font-medium tracking-[0.12em] text-dim uppercase">
-                  Documentos
-                </p>
-                <button
-                  type="button"
-                  onClick={() => router.push("/terminos")}
-                  className="mt-2 flex items-center gap-2 text-base font-medium text-accent"
-                >
-                  <BookOpenCheck className="size-4" aria-hidden="true" />
-                  Consultar reglamento de uso
-                </button>
-              </section>
-
-              <section className="rounded-2xl border border-accent/15 bg-input/30 px-4 py-4">
                 <p className="text-xs font-medium tracking-[0.12em] text-dim uppercase">Cuenta</p>
                 <dl className="mt-3 divide-y divide-accent/15 border-y border-accent/15">
                   <div className="flex items-center justify-between gap-4 py-3">
@@ -717,210 +917,6 @@ export default function ProfilePage() {
           )}
         </div>
       </div>
-
-      {isEditorOpen && (
-        <div
-          role="presentation"
-          className="fixed inset-0 z-50 flex items-end justify-center bg-overlay px-4 py-4 backdrop-blur-sm sm:items-center sm:px-6"
-          onMouseDown={closeEditor}
-        >
-          <form
-            aria-labelledby="profile-editor-title"
-            aria-modal="true"
-            role="dialog"
-            onSubmit={saveProfile}
-            onMouseDown={(event) => event.stopPropagation()}
-            className="flex w-full max-w-[var(--container-app)] flex-col gap-4 rounded-2xl border border-accent/20 bg-surface px-5 py-5 shadow-2xl"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-medium tracking-[0.12em] text-dim uppercase">
-                  Información personal
-                </p>
-                <h2
-                  id="profile-editor-title"
-                  className="mt-1 text-lg font-semibold text-foreground"
-                >
-                  Actualizar información
-                </h2>
-              </div>
-              <button
-                type="button"
-                onClick={closeEditor}
-                aria-label="Cerrar edición"
-                className="flex size-9 items-center justify-center rounded-full text-muted transition-colors hover:bg-accent/10 hover:text-accent disabled:cursor-not-allowed"
-                disabled={isSaving}
-              >
-                <X className="size-5" aria-hidden="true" />
-              </button>
-            </div>
-
-            <p className="text-sm leading-5 text-muted">Completa los campos requeridos.</p>
-
-            <label className="flex flex-col gap-2 text-sm text-foreground-muted">
-              <span className="flex items-center justify-between gap-3">
-                Fecha de nacimiento
-                <span className="text-red-500">Requerido</span>
-              </span>
-              <input
-                type="date"
-                value={formValues.dateOfBirth}
-                onChange={(event) =>
-                  setFormValues((currentValues) => ({
-                    ...currentValues,
-                    dateOfBirth: event.target.value,
-                  }))
-                }
-                max={getMonthQuery(today) + `-${String(today.getDate()).padStart(2, "0")}`}
-                className="gusm-input-primary"
-              />
-            </label>
-
-            <label className="flex flex-col gap-2 text-sm text-foreground-muted">
-              <span className="flex items-center justify-between gap-3">
-                Sexo declarado
-                <span className="text-red-500">Requerido</span>
-              </span>
-              <select
-                value={formValues.reportedSex}
-                onChange={(event) =>
-                  setFormValues((currentValues) => ({
-                    ...currentValues,
-                    reportedSex:
-                      event.target.value === "masculino" ||
-                      event.target.value === "femenino" ||
-                      event.target.value === "otro" ||
-                      event.target.value === "prefiero_no_decir"
-                        ? event.target.value
-                        : "",
-                  }))
-                }
-                className="gusm-input-primary"
-              >
-                <option value="">No informado</option>
-                <option value="masculino">Masculino</option>
-                <option value="femenino">Femenino</option>
-                <option value="otro">Otro</option>
-                <option value="prefiero_no_decir">Prefiero no decir</option>
-              </select>
-            </label>
-
-            <div className="flex flex-col gap-4">
-              <label className="flex min-w-0 flex-col gap-2 text-sm text-foreground-muted">
-                <span className="flex items-center justify-between gap-3">
-                  Altura (cm)
-                  <span className="text-red-500">Requerido</span>
-                </span>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  maxLength={6}
-                  value={formValues.heightCm}
-                  onChange={(event) =>
-                    setFormValues((currentValues) => ({
-                      ...currentValues,
-                      heightCm: truncateHeightInput(event.target.value),
-                    }))
-                  }
-                  className="gusm-input-primary"
-                />
-              </label>
-
-              <label className="flex min-w-0 flex-col gap-2 text-sm text-foreground-muted">
-                <span className="flex items-center justify-between gap-3">
-                  Peso (kg)
-                  <span className="text-red-500">Requerido</span>
-                </span>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  maxLength={6}
-                  value={formValues.weightKg}
-                  onChange={(event) =>
-                    setFormValues((currentValues) => ({
-                      ...currentValues,
-                      weightKg: truncateWeightInput(event.target.value),
-                    }))
-                  }
-                  className="gusm-input-primary"
-                />
-              </label>
-            </div>
-
-            <label className="flex flex-col gap-2 text-sm text-foreground-muted">
-              <span className="flex items-center justify-between gap-3">
-                Carrera
-                <span className="text-red-500">Requerido</span>
-              </span>
-              <select
-                value={formValues.academicProgramId}
-                onChange={(event) =>
-                  setFormValues((currentValues) => ({
-                    ...currentValues,
-                    academicProgramId: event.target.value,
-                  }))
-                }
-                className="gusm-input-primary"
-              >
-                <option value="">Selecciona tu carrera</option>
-                {academicPrograms.map((academicProgram) => (
-                  <option
-                    key={academicProgram.academicProgramId}
-                    value={academicProgram.academicProgramId}
-                  >
-                    {academicProgram.programName}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="flex flex-col gap-2 text-sm text-foreground-muted">
-              <span className="flex items-center justify-between gap-3">
-                Año de ingreso a la carrera
-                <span className="text-red-500">Requerido</span>
-              </span>
-              <input
-                type="text"
-                inputMode="numeric"
-                maxLength={4}
-                value={formValues.careerEntryYear}
-                onChange={(event) =>
-                  setFormValues((currentValues) => ({
-                    ...currentValues,
-                    careerEntryYear: event.target.value.replace(/\D/g, "").slice(0, 4),
-                  }))
-                }
-                className="gusm-input-primary"
-              />
-            </label>
-
-            {formError && (
-              <p role="alert" className="text-sm text-rose-400">
-                {formError}
-              </p>
-            )}
-
-            <div className="grid grid-cols-2 gap-3 pt-1">
-              <button
-                type="button"
-                onClick={closeEditor}
-                disabled={isSaving}
-                className="gusm-control-height rounded-xl border border-divider px-4 text-base text-foreground-muted transition-colors hover:border-muted disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                disabled={isSaving}
-                className="flex gusm-button-primary items-center justify-center gap-2"
-              >
-                {isSaving && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
-                Guardar
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
     </main>
   );
 }
