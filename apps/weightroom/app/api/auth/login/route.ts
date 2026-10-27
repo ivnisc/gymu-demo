@@ -4,7 +4,7 @@ import * as z from "zod/v4";
 import { CREATE_SUPABASE_SERVER_CLIENT } from "@gusm/database/client";
 import { CREATE_SUPABASE_SERVICE_ROLE_CLIENT } from "@gusm/database/service-role";
 import { LOGIN_REQUEST_SCHEMA, type LoginErrorCode, type LoginRequest } from "@/lib/auth/login";
-import { PRESENTATION_LOGIN_BYPASS_ENABLED } from "@/lib/auth/presentation-login";
+import { DEMO_MODE_ENABLED, createDemoLoginResponse } from "@/lib/auth/demo-session";
 
 export const runtime = "nodejs";
 
@@ -16,16 +16,6 @@ const SANSANO_PROFILE_SCHEMA = z.object({
 const SANSANO_ERROR_RESPONSE_SCHEMA = z.object({
   error: z.string().trim().min(1).max(500),
 });
-
-const PRESENTATION_USER_NAME =
-  process.env["GYMU_PRESENTATION_USER_NAME"]?.trim() || "Ivan Gallardo";
-const PRESENTATION_IDENTITY_LABEL = "gymu-presentation-user-v1";
-
-const PRESENTATION_LOGIN_PAYLOAD_SCHEMA = z
-  .object({
-    themePreference: z.enum(["dark", "light"]).optional(),
-  })
-  .passthrough();
 
 type SansanoAuthSettings = {
   apiKey: string;
@@ -135,27 +125,6 @@ function createIdentityValues(rut: string, identityHmacKey: string) {
     databaseValue: `\\x${identityHmacHex}`,
     internalEmail: `${identityHmacHex}@auth.gusm.invalid`,
   };
-}
-
-function createPresentationIdentityValues(identityHmacKey: string) {
-  const identityHmacHex = createHmac("sha256", identityHmacKey)
-    .update(PRESENTATION_IDENTITY_LABEL)
-    .digest("hex");
-
-  return {
-    databaseValue: `\\x${identityHmacHex}`,
-    internalEmail: `${identityHmacHex}@auth.gusm.invalid`,
-  };
-}
-
-function getPresentationIdentityHmacKey() {
-  const identityHmacKey = process.env["GUSM_IDENTITY_HMAC_KEY"];
-
-  if (!identityHmacKey) {
-    throw new Error("[LOGIN] GUSM_IDENTITY_HMAC_KEY is missing for presentation login.");
-  }
-
-  return identityHmacKey;
 }
 
 function getRetryAfterSeconds(response: Response) {
@@ -312,81 +281,15 @@ async function upsertInstitutionalIdentity(userId: string, institutionalUsername
   }
 }
 
-async function createPresentationLoginResponse(request: NextRequest) {
-  const payload: unknown = await request.json().catch(function ignoreInvalidPresentationPayload() {
-    return null;
-  });
-  const parsedPayload = PRESENTATION_LOGIN_PAYLOAD_SCHEMA.safeParse(payload);
-  const themePreference = parsedPayload.success ? parsedPayload.data.themePreference : undefined;
-  const serviceRoleClient = CREATE_SUPABASE_SERVICE_ROLE_CLIENT();
-  const identityValues = createPresentationIdentityValues(getPresentationIdentityHmacKey());
-  const existingAppUser = await findAppUser(identityValues.databaseValue);
-
-  const { data: generatedLink, error: generatedLinkError } =
-    await serviceRoleClient.auth.admin.generateLink({
-      type: "magiclink",
-      email: identityValues.internalEmail,
-    });
-
-  if (generatedLinkError || !generatedLink.properties || !generatedLink.user) {
-    console.error("[LOGIN] could not generate the presentation session link.");
-    return createErrorResponse(503, "auth_upstream_unavailable");
-  }
-
-  const appUserState = await provisionAppUser(
-    identityValues.databaseValue,
-    generatedLink.user.id,
-    PRESENTATION_USER_NAME,
-    themePreference,
-    existingAppUser,
-  );
-
-  if (appUserState === "disabled") {
-    return createErrorResponse(403, "account_disabled");
-  }
-
-  const response = createSuccessResponse();
-  const sessionClient = CREATE_SUPABASE_SERVER_CLIENT({
-    getAll() {
-      return request.cookies.getAll();
-    },
-    setAll(cookiesToSet) {
-      for (const cookie of cookiesToSet) {
-        response.cookies.set(cookie.name, cookie.value, cookie.options);
-      }
-    },
-  });
-  const { data: sessionData, error: sessionError } = await sessionClient.auth.verifyOtp({
-    token_hash: generatedLink.properties.hashed_token,
-    type: "email",
-  });
-
-  if (sessionError || sessionData.user?.id !== generatedLink.user.id) {
-    console.error("[LOGIN] could not establish the presentation session.");
-    return createErrorResponse(503, "auth_upstream_unavailable");
-  }
-
-  const { data: hasAcceptedRegulation, error: regulationError } =
-    await sessionClient.rpc("has_accepted_regulation");
-  if (regulationError || typeof hasAcceptedRegulation !== "boolean") {
-    console.error("[LOGIN] could not determine regulation acceptance.", regulationError);
-    return createErrorResponse(503, "auth_upstream_unavailable");
-  }
-
-  response.headers.set(
-    "X-GYMU-Regulation-Acceptance-Required",
-    (!hasAcceptedRegulation).toString(),
-  );
-
-  return response;
-}
-
 export async function POST(request: NextRequest) {
-  if (PRESENTATION_LOGIN_BYPASS_ENABLED) {
+  if (DEMO_MODE_ENABLED) {
     try {
-      return await createPresentationLoginResponse(request);
+      const response = await createDemoLoginResponse(request);
+      if (response) return response;
+
+      return createErrorResponse(503, "auth_upstream_unavailable");
     } catch (error) {
-      console.error("[LOGIN] could not establish the local presentation session.", error);
+      console.error("[LOGIN] could not establish the demo session.", error);
       return createErrorResponse(503, "auth_upstream_unavailable");
     }
   }

@@ -35,6 +35,15 @@ const THEME_INITIALIZATION_SCRIPT = `(() => {
 export const metadata: Metadata = {
   title: "GYMU",
   description: "Gestión de la Sala de Musculación UTFSM Concepción",
+  icons: {
+    apple: [
+      {
+        url: "/pwa/apple-touch-icon.png",
+        sizes: "180x180",
+        type: "image/png",
+      },
+    ],
+  },
 };
 
 export const viewport: Viewport = {

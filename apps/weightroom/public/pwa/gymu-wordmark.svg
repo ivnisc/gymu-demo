@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">GYMU</title>
+  <rect width="512" height="512" fill="#ffffff"/>
+  <text
+    x="256"
+    y="285"
+    fill="#0a0a0a"
+    font-family="Montserrat, Arial, sans-serif"
+    font-size="136"
+    font-weight="900"
+    letter-spacing="-11"
+    text-anchor="middle"
+  >GYMU</text>
+</svg>

@@ -8,6 +8,7 @@ const CURRENT_USER_SCHEMA = z.object({
   regulationAccepted: z.boolean(),
   streakWeeks: z.number().int().nonnegative(),
   themePreference: z.enum(["dark", "light"]),
+  demoMode: z.boolean(),
 });
 
 export type CurrentUser = z.infer<typeof CURRENT_USER_SCHEMA> & { role: AppRole };

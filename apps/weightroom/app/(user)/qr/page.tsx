@@ -22,6 +22,7 @@ const ISSUE_RESPONSE_SCHEMA = z.discriminatedUnion("state", [
     bookingDate: z.string().date(),
     timeBlockId: z.number().int().positive(),
     expiresAt: TIMESTAMP_SCHEMA,
+    demo: z.literal(true).optional(),
   }),
   z.object({ state: z.literal("arrived_too_late") }),
   z.object({ state: z.literal("no_current_booking") }),
@@ -49,6 +50,7 @@ type QrScreen =
       payload: string;
       expiresAt: string;
       timeBlockId: number;
+      demo: boolean;
     }
   | { type: "arrived_too_late" }
   | { type: "no_current_booking" }
@@ -130,6 +132,7 @@ export default function CheckInQrPage() {
           payload: issueResponse.data.payload,
           expiresAt: issueResponse.data.expiresAt,
           timeBlockId: issueResponse.data.timeBlockId,
+          demo: issueResponse.data.demo === true,
         });
       } else {
         setScreen({ type: issueResponse.data.state });
@@ -147,7 +150,7 @@ export default function CheckInQrPage() {
   }, [issueQr]);
 
   useEffect(() => {
-    if (screen.type !== "ready" || scanResult) return;
+    if (screen.type !== "ready" || screen.demo || scanResult) return;
     const activeQr = screen;
 
     function updateRemainingTime() {
@@ -165,7 +168,7 @@ export default function CheckInQrPage() {
   }, [issueQr, scanResult, screen]);
 
   useEffect(() => {
-    if (screen.type !== "ready" || scanResult) return;
+    if (screen.type !== "ready" || screen.demo || scanResult) return;
     const activeQr = screen;
 
     let isCancelled = false;
@@ -266,7 +269,7 @@ export default function CheckInQrPage() {
               </p>
               <h1 className="mt-2 text-2xl font-semibold text-foreground">Escanea tu código QR</h1>
               <p className="mt-2 max-w-72 text-sm leading-6 text-muted">
-                Muéstralo al lector de la sala antes de que el código venza.
+                Muéstralo al lector de la sala para registrar tu asistencia.
               </p>
 
               <div className="mt-8 rounded-3xl border border-accent/40 bg-accent p-4 shadow-accent">
@@ -281,10 +284,12 @@ export default function CheckInQrPage() {
                 />
               </div>
 
-              <div className="mt-6 flex items-center gap-2 rounded-full border border-divider bg-input px-4 py-2 text-sm text-muted">
-                <Clock3 className="size-4 text-accent" aria-hidden="true" />
-                <span>Se renueva en {formatRemainingSeconds(remainingSeconds)}</span>
-              </div>
+              {!screen.demo && (
+                <div className="mt-6 flex items-center gap-2 rounded-full border border-divider bg-input px-4 py-2 text-sm text-muted">
+                  <Clock3 className="size-4 text-accent" aria-hidden="true" />
+                  <span>Se renueva en {formatRemainingSeconds(remainingSeconds)}</span>
+                </div>
+              )}
 
               {isStatusUnavailable && (
                 <p role="alert" className="mt-4 max-w-72 text-sm leading-6 text-rose-300">
@@ -293,17 +298,21 @@ export default function CheckInQrPage() {
                 </p>
               )}
 
-              <button
-                type="button"
-                onClick={() => void issueQr()}
-                className="mt-5 flex items-center gap-2 text-base font-medium text-accent transition-colors hover:text-accent/75"
-              >
-                <RefreshCw className="size-4" aria-hidden="true" />
-                Generar otro código
-              </button>
-              <p className="mt-2 max-w-72 text-xs leading-5 text-dim">
-                Si el lector no respondió, este código se invalida de inmediato.
-              </p>
+              {!screen.demo && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => void issueQr()}
+                    className="mt-5 flex items-center gap-2 text-base font-medium text-accent transition-colors hover:text-accent/75"
+                  >
+                    <RefreshCw className="size-4" aria-hidden="true" />
+                    Generar otro código
+                  </button>
+                  <p className="mt-2 max-w-72 text-xs leading-5 text-dim">
+                    Si el lector no respondió, este código se invalida de inmediato.
+                  </p>
+                </>
+              )}
             </div>
           )}
 

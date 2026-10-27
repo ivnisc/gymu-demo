@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import * as z from "zod/v4";
 import { CREATE_SUPABASE_SERVICE_ROLE_CLIENT } from "@gusm/database/service-role";
 import { createCheckInQrToken } from "@/lib/check-in-qr";
+import { isDemoRequest } from "@/lib/auth/demo-session";
 import { createResponse, getAuthenticatedUserId, isSameOrigin } from "../_shared";
 
 export const runtime = "nodejs";
@@ -38,6 +39,18 @@ export async function POST(request: NextRequest) {
   const userId = await getAuthenticatedUserId(request, response);
   if (!userId) {
     return createResponse(response, 401, { code: "unauthenticated" });
+  }
+
+  if (await isDemoRequest(request, userId)) {
+    return createResponse(response, 200, {
+      state: "ready",
+      tokenId: "00000000-0000-4000-8000-000000000000",
+      payload: "GYMU-CHECK-IN",
+      bookingDate: new Date().toISOString().slice(0, 10),
+      timeBlockId: 7,
+      expiresAt: "2099-01-01T00:00:00.000Z",
+      demo: true,
+    });
   }
 
   const checkInQrToken = createCheckInQrToken();

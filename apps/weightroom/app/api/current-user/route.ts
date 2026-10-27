@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import * as z from "zod/v4";
 import { CREATE_SUPABASE_SERVER_CLIENT } from "@gusm/database/client";
 import { CREATE_SUPABASE_SERVICE_ROLE_CLIENT } from "@gusm/database/service-role";
+import { isDemoRequest } from "@/lib/auth/demo-session";
 
 export const runtime = "nodejs";
 
@@ -81,5 +82,6 @@ export async function GET(request: NextRequest) {
     regulationAccepted: appUserResult.data.regulation_accepted_at !== null,
     streakWeeks: currentUser.data.streak_weeks,
     themePreference: currentUser.data.theme_preference,
+    demoMode: await isDemoRequest(request, userId),
   });
 }

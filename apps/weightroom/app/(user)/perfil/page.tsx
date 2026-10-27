@@ -3,16 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  BadgeAlert,
-  BookOpenCheck,
-  CheckCircle2,
-  ClipboardList,
-  Dumbbell,
-  Loader2,
-  Pencil,
-  X,
-} from "lucide-react";
+import { BookOpenCheck, CheckCircle2, Dumbbell, Loader2, Pencil, X } from "lucide-react";
 import * as z from "zod/v4";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
@@ -69,11 +60,32 @@ const PROFILE_ATTENDANCE_RESPONSE_SCHEMA = z.object({
   ),
 });
 
+const ROUTINE_ASSIGNMENT_SCHEMA = z.object({
+  routine_plan_id: z.string().uuid(),
+  title: z.string().min(1),
+  assigned_at: z.string().datetime({ offset: true }),
+  created_by_name: z.string().min(1),
+  exercises: z.array(
+    z.object({
+      exerciseKey: z.string().min(1),
+      name: z.string().min(1),
+      totalSets: z.number().int().positive(),
+      effectiveSets: z.number().int().nonnegative(),
+      repetitionsMin: z.number().int().positive(),
+      repetitionsMax: z.number().int().positive(),
+      loadKg: z.number().nullable(),
+      rir: z.number().int().nullable(),
+      restSeconds: z.number().int().nullable(),
+    }),
+  ),
+});
+
 type Profile = z.infer<typeof PROFILE_SCHEMA>;
 type ProfileOverviewResponse = z.infer<typeof PROFILE_OVERVIEW_RESPONSE_SCHEMA>;
 type ProfileMonthResponse = z.infer<typeof PROFILE_ATTENDANCE_RESPONSE_SCHEMA> & {
   monthQuery: string;
 };
+type RoutineAssignment = z.infer<typeof ROUTINE_ASSIGNMENT_SCHEMA>;
 type ProfileFormValues = {
   dateOfBirth: string;
   reportedSex: "" | "masculino" | "femenino" | "otro" | "prefiero_no_decir";
@@ -289,6 +301,18 @@ async function saveProfileData(profileData: ProfileMutationPayload) {
   if (response.status !== 204) throw new Error("Profile update was rejected.");
 }
 
+async function getOwnRoutineAssignments(): Promise<RoutineAssignment[]> {
+  const supabase = CREATE_SUPABASE_BROWSER_CLIENT();
+  const { data, error } = await supabase.rpc("get_own_routine_assignments");
+
+  if (error) throw new Error("Routine assignments request was rejected.");
+
+  const parsedAssignments = z.array(ROUTINE_ASSIGNMENT_SCHEMA).safeParse(data);
+  if (!parsedAssignments.success) throw new Error("Routine assignments response is invalid.");
+
+  return parsedAssignments.data;
+}
+
 export default function ProfilePage() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -306,7 +330,6 @@ export default function ProfilePage() {
   });
   const [formError, setFormError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [isAccessPreview, setIsAccessPreview] = useState(false);
 
   const monthQuery = getMonthQuery(visibleMonth);
   const profileQuery = useQuery({
@@ -318,6 +341,11 @@ export default function ProfilePage() {
     queryKey: profileMonthQueryKey(monthQuery),
     queryFn: () => getProfileAttendance(monthQuery),
     placeholderData: keepPreviousData,
+    staleTime: 5 * 60_000,
+  });
+  const routineAssignmentsQuery = useQuery({
+    queryKey: ["own-routine-assignments"],
+    queryFn: getOwnRoutineAssignments,
     staleTime: 5 * 60_000,
   });
   const profile = profileQuery.data?.profile ?? null;
@@ -350,10 +378,6 @@ export default function ProfilePage() {
         : currentUser,
     );
   }, [profile, queryClient]);
-
-  useEffect(() => {
-    setIsAccessPreview(new URLSearchParams(window.location.search).get("demo") === "access");
-  }, []);
 
   function openEditor() {
     if (!profile) return;
@@ -771,6 +795,51 @@ export default function ProfilePage() {
                 </AnimatePresence>
               </section>
 
+              {routineAssignmentsQuery.data && routineAssignmentsQuery.data.length > 0 && (
+                <section className="rounded-2xl border border-accent/15 bg-input/30 px-4 py-4">
+                  <p className="text-xs font-medium tracking-[0.12em] text-dim uppercase">
+                    Rutinas
+                  </p>
+                  <h2 className="mt-1 text-lg font-semibold text-foreground">
+                    Tu pauta de entrenamiento
+                  </h2>
+                  <div className="mt-4 divide-y divide-accent/15 border-y border-accent/15">
+                    {routineAssignmentsQuery.data.map((routineAssignment) => (
+                      <details key={routineAssignment.routine_plan_id} className="group py-3">
+                        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-base font-medium text-foreground marker:hidden">
+                          <span className="flex min-w-0 items-center gap-3">
+                            <Dumbbell className="size-4 shrink-0 text-accent" aria-hidden="true" />
+                            <span className="truncate">{routineAssignment.title}</span>
+                          </span>
+                          <span className="shrink-0 text-sm font-normal text-muted">
+                            {routineAssignment.exercises.length} ejercicios
+                          </span>
+                        </summary>
+                        <p className="mt-2 text-sm text-muted">
+                          Asignada por {routineAssignment.created_by_name}
+                        </p>
+                        <ul className="mt-3 grid gap-2 border-t border-divider/80 pt-3">
+                          {routineAssignment.exercises.map((exercise) => (
+                            <li
+                              key={exercise.exerciseKey}
+                              className="flex items-center justify-between gap-3 text-sm text-foreground-muted"
+                            >
+                              <span className="min-w-0 truncate">{exercise.name}</span>
+                              <span className="shrink-0 text-dim">
+                                {exercise.totalSets} × {exercise.repetitionsMin}
+                                {exercise.repetitionsMin !== exercise.repetitionsMax
+                                  ? `-${exercise.repetitionsMax}`
+                                  : ""}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    ))}
+                  </div>
+                </section>
+              )}
+
               <section
                 id="acceso"
                 className="rounded-2xl border border-accent/15 bg-input/30 px-4 py-4"
@@ -832,69 +901,6 @@ export default function ProfilePage() {
                   </div>
                 </div>
               </section>
-
-              {isAccessPreview && (
-                <section className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-4">
-                  <div className="flex gap-3">
-                    <BadgeAlert
-                      className="mt-0.5 size-5 shrink-0 text-amber-500"
-                      aria-hidden="true"
-                    />
-                    <div>
-                      <h2 className="text-base font-semibold text-foreground">Vista de revisión</h2>
-                      <p className="mt-1 text-sm leading-5 text-muted">
-                        Este estado simula un reglamento pendiente para validar el flujo con
-                        DEFIDER.
-                      </p>
-                    </div>
-                  </div>
-                </section>
-              )}
-
-              {isAccessPreview && (
-                <section className="rounded-2xl border border-accent/15 bg-input/30 px-4 py-4">
-                  <p className="text-xs font-medium tracking-[0.12em] text-dim uppercase">Avisos</p>
-                  <h2 className="mt-1 text-lg font-semibold text-foreground">
-                    Estado de tu cuenta
-                  </h2>
-                  <div className="mt-4 divide-y divide-accent/15 border-y border-accent/15">
-                    <div className="flex gap-3 py-3">
-                      <BadgeAlert
-                        className="mt-0.5 size-5 shrink-0 text-amber-500"
-                        aria-hidden="true"
-                      />
-                      <div>
-                        <p className="text-base font-medium text-foreground">
-                          Advertencia operativa
-                        </p>
-                        <p className="mt-0.5 text-sm leading-5 text-muted">
-                          No confirmaste una reserva antes del cierre de su ventana.
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex gap-3 py-3">
-                      <ClipboardList
-                        className="mt-0.5 size-5 shrink-0 text-accent"
-                        aria-hidden="true"
-                      />
-                      <div>
-                        <p className="text-base font-medium text-foreground">Rutina asignada</p>
-                        <p className="mt-0.5 text-sm leading-5 text-muted">
-                          Tren superior · Lunes. En la versión final podrás abrirla desde aquí.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => router.push("/rutinas")}
-                    className="mt-4 flex w-full gusm-button-primary items-center justify-center gap-2"
-                  >
-                    <Dumbbell className="size-4" aria-hidden="true" />
-                    Ver rutina asignada
-                  </button>
-                </section>
-              )}
 
               <section className="rounded-2xl border border-accent/15 bg-input/30 px-4 py-4">
                 <p className="text-xs font-medium tracking-[0.12em] text-dim uppercase">Cuenta</p>

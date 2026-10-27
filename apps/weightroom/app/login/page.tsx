@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -8,6 +8,7 @@ import { cva } from "class-variance-authority";
 import { clsx } from "clsx";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
+import * as z from "zod/v4";
 import { EXTERNAL_LINK_PROPS } from "@gusm/utils/link";
 import { EmailDomainSelect } from "@/components/EmailDomainSelect";
 import { IconGithub } from "@/components/icons";
@@ -19,7 +20,6 @@ import {
   LOGIN_REQUEST_SCHEMA,
   type LoginRequest,
 } from "@/lib/auth/login";
-import { PRESENTATION_LOGIN_BYPASS_ENABLED } from "@/lib/auth/presentation-login";
 import { clearQueryCache } from "@/lib/query-client";
 import type { ThemePreference } from "@/lib/theme";
 type LoginButtonStatus = "idle" | "loading" | "error_credentials" | "error_network" | "success";
@@ -43,8 +43,32 @@ export default function LoginPage() {
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [loginSucceeded, setLoginSucceeded] = useState(false);
   const [loginThemePreference, setLoginThemePreference] = useState<ThemePreference | null>(null);
+  const [isDemoMode, setIsDemoMode] = useState<boolean | null>(null);
 
   const router = useRouter();
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadDemoMode() {
+      try {
+        const response = await fetch("/api/demo/session", { cache: "no-store" });
+        const payload: unknown = await response.json();
+        const parsedPayload = z.object({ enabled: z.boolean() }).safeParse(payload);
+
+        if (!cancelled && response.ok && parsedPayload.success) {
+          setIsDemoMode(parsedPayload.data.enabled);
+        }
+      } catch {
+        if (!cancelled) setIsDemoMode(false);
+      }
+    }
+
+    void loadDemoMode();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const {
     clearErrors,
@@ -83,9 +107,28 @@ export default function LoginPage() {
     setPasswordVisible(!passwordVisible);
   }
 
-  function handlePresentationLoginSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleFormSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    void handleLoginSubmit(getValues());
+
+    let demoMode = isDemoMode;
+    if (demoMode === null) {
+      try {
+        const response = await fetch("/api/demo/session", { cache: "no-store" });
+        const payload: unknown = await response.json();
+        const parsedPayload = z.object({ enabled: z.boolean() }).safeParse(payload);
+        demoMode = response.ok && parsedPayload.success && parsedPayload.data.enabled;
+        setIsDemoMode(demoMode);
+      } catch {
+        demoMode = false;
+        setIsDemoMode(false);
+      }
+    }
+
+    if (demoMode) {
+      void handleLoginSubmit(getValues());
+    } else {
+      void handleSubmit(handleLoginSubmit)(event);
+    }
   }
 
   async function handleLoginSubmit(loginRequest: LoginRequest) {
@@ -198,11 +241,7 @@ export default function LoginPage() {
 
         <form
           noValidate
-          onSubmit={
-            PRESENTATION_LOGIN_BYPASS_ENABLED
-              ? handlePresentationLoginSubmit
-              : handleSubmit(handleLoginSubmit)
-          }
+          onSubmit={handleFormSubmit}
           aria-busy={isSubmitting}
           className="flex w-full flex-1 flex-col gap-5"
         >

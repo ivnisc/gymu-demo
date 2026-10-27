@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   BarChart3,
+  ChevronDown,
   CalendarCheck,
   CalendarDays,
   Dumbbell,
@@ -32,6 +33,7 @@ import {
 } from "@/lib/booking/availability";
 import { createActiveBookings, getActiveBookingWeekStarts } from "@/lib/booking/active-bookings";
 import { getCurrentUser } from "@/lib/current-user";
+import { clearQueryCache } from "@/lib/query-client";
 import { CURRENT_USER_QUERY_KEY } from "@/lib/query-keys";
 import type { ThemePreference } from "@/lib/theme";
 import { notifyError } from "@/lib/toast";
@@ -41,7 +43,7 @@ const STREAK_GLOW_DURATION_MILLISECONDS = 1500;
 
 export type AppRole = "student" | "u_staff" | "gym_staff" | "admin";
 
-type ActivePopover = "bookings" | "menu" | "streak" | null;
+type ActivePopover = "bookings" | "demo-role" | "menu" | "streak" | null;
 type MenuItemVariant = "default" | "destructive";
 
 type AvatarMenuItem = {
@@ -64,6 +66,12 @@ const DESKTOP_NAVIGATION_ITEMS: DesktopNavigationItem[] = [
   { href: "/qr", label: "QR", icon: QrCode },
   { href: "/estadisticas", label: "Cifras", icon: BarChart3 },
   { href: "/noticias", label: "Noticias", icon: Newspaper },
+];
+
+const DEMO_ROLE_OPTIONS: ReadonlyArray<{ label: string; role: Exclude<AppRole, "admin"> }> = [
+  { label: "Estudiante", role: "student" },
+  { label: "Personal USM", role: "u_staff" },
+  { label: "Equipo de sala", role: "gym_staff" },
 ];
 
 type UserTopBarProps = {
@@ -250,6 +258,30 @@ export function UserTopBar({
     }
 
     await queryClient.invalidateQueries({ queryKey: ["booking-week-availability"] });
+  }
+
+  async function switchDemoRole(nextRole: Exclude<AppRole, "admin">) {
+    closePopover();
+
+    try {
+      const response = await fetch("/api/demo/session", {
+        method: "POST",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: nextRole }),
+      });
+
+      if (!response.ok) throw new Error("Demo role switch was rejected.");
+
+      clearQueryCache();
+      window.location.replace("/reserva");
+    } catch (error) {
+      console.error("[TOPBAR] could not switch the temporary session role.", error);
+      notifyError("No fue posible cambiar la vista", {
+        description: "Inténtalo nuevamente.",
+        zone: "top",
+      });
+    }
   }
 
   const streakLabel =
@@ -464,6 +496,41 @@ export function UserTopBar({
           <span className="hidden max-w-48 min-w-0 truncate text-sm text-muted sm:block">
             {topBarUserName}
           </span>
+        )}
+
+        {currentUser?.demoMode && topBarRole !== undefined && (
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={(event) => togglePopover(event, "demo-role")}
+              aria-expanded={activePopover === "demo-role"}
+              aria-label="Cambiar vista"
+              className="flex min-h-10 items-center gap-0.5 rounded-lg px-1.5 text-muted transition-colors hover:bg-input active:scale-95"
+            >
+              <ChevronDown className="size-4" aria-hidden="true" />
+            </button>
+
+            {activePopover === "demo-role" && (
+              <div className="animate-in fade-in slide-in-from-top-1 absolute top-full right-0 z-50 mt-2 min-w-44 overflow-hidden rounded-xl border border-accent/20 bg-surface py-1 shadow-xl duration-200">
+                {DEMO_ROLE_OPTIONS.map((option) => (
+                  <button
+                    key={option.role}
+                    type="button"
+                    onClick={() => void switchDemoRole(option.role)}
+                    disabled={option.role === topBarRole}
+                    className={clsx(
+                      "flex w-full items-center px-3 py-2 text-left text-sm transition-colors",
+                      option.role === topBarRole
+                        ? "cursor-default text-accent"
+                        : "text-foreground hover:bg-input",
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         )}
 
         {accountLabel && <span className="text-sm text-muted">{accountLabel}</span>}
