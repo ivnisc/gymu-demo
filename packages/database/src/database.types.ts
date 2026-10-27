@@ -83,6 +83,62 @@ export type Database = {
         }
         Relationships: []
       }
+      demo_persona_bundle: {
+        Row: {
+          bundle_key: string
+          created_at: string
+          gym_staff_user_id: string
+          student_user_id: string
+          u_staff_user_id: string
+        }
+        Insert: {
+          bundle_key: string
+          created_at?: string
+          gym_staff_user_id: string
+          student_user_id: string
+          u_staff_user_id: string
+        }
+        Update: {
+          bundle_key?: string
+          created_at?: string
+          gym_staff_user_id?: string
+          student_user_id?: string
+          u_staff_user_id?: string
+        }
+        Relationships: []
+      }
+      demo_persona_lease: {
+        Row: {
+          bundle_key: string
+          created_at: string
+          demo_persona_lease_id: string
+          expires_at: string
+          token_hash: string
+        }
+        Insert: {
+          bundle_key: string
+          created_at?: string
+          demo_persona_lease_id?: string
+          expires_at: string
+          token_hash: string
+        }
+        Update: {
+          bundle_key?: string
+          created_at?: string
+          demo_persona_lease_id?: string
+          expires_at?: string
+          token_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demo_persona_lease_bundle_key_fkey"
+            columns: ["bundle_key"]
+            isOneToOne: true
+            referencedRelation: "demo_persona_bundle"
+            referencedColumns: ["bundle_key"]
+          },
+        ]
+      }
       exercise_catalog: {
         Row: {
           asset_path: string
@@ -770,6 +826,7 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: string[]
       }
+      reset_demo_personas: { Args: never; Returns: undefined }
       revoke_unscanned_check_in_qr_tokens: {
         Args: {
           p_booking_date: string
@@ -1452,6 +1509,15 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      claim_demo_persona: {
+        Args: { p_token_hash: string }
+        Returns: {
+          bundle_key: string
+          gym_staff_user_id: string
+          student_user_id: string
+          u_staff_user_id: string
+        }[]
+      }
       confirm_booking: {
         Args: { p_booking_id: string }
         Returns: {
@@ -1596,6 +1662,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      enrich_demo_persona_history: { Args: never; Returns: undefined }
       expire_unconfirmed_bookings: { Args: never; Returns: number }
       finalize_due_attendance: { Args: never; Returns: number }
       get_academic_programs: {
@@ -1778,6 +1845,15 @@ export type Database = {
           overcapacity_max_above: number
           standard_capacity: number
           time_block_id: number
+        }[]
+      }
+      get_demo_persona_bundle: {
+        Args: { p_token_hash: string }
+        Returns: {
+          bundle_key: string
+          gym_staff_user_id: string
+          student_user_id: string
+          u_staff_user_id: string
         }[]
       }
       get_own_active_research_campaigns: {
@@ -2001,6 +2077,7 @@ export type Database = {
           time_block_id: number
         }[]
       }
+      reset_demo_personas: { Args: never; Returns: undefined }
       restore_admin_user: {
         Args: { p_actor_user_id: string; p_target_user_id: string }
         Returns: {
@@ -2095,6 +2172,10 @@ export type Database = {
           user_role: Database["public"]["Enums"]["app_role"]
         }[]
       }
+      seed_demo_current_block_context: { Args: never; Returns: undefined }
+      seed_demo_personas: { Args: { p_people: Json }; Returns: undefined }
+      seed_demo_personas_v2: { Args: { p_people: Json }; Returns: undefined }
+      seed_demo_personas_v3: { Args: { p_people: Json }; Returns: undefined }
       set_admin_research_question_campaign_availability: {
         Args: {
           p_actor_user_id: string

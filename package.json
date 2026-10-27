@@ -10,7 +10,9 @@
     "format:check": "turbo run format:check",
     "db:types": "pnpm --filter @gusm/database db:types",
     "db:migration:new": "pnpm --filter @gusm/database db:migration:new",
-    "db:push": "pnpm --filter @gusm/database db:push"
+    "db:push": "pnpm --filter @gusm/database db:push",
+    "demo:seed": "node scripts/demo/seed.mjs",
+    "demo:cleanup": "node scripts/demo/cleanup.mjs"
   },
   "devDependencies": {
     "oxfmt": "^0.42.0",
